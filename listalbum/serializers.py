@@ -1,7 +1,12 @@
 from rest_framework import serializers
-from .models import Photos
+from .models import Photos, Album
 
 class PhotosSerializer(serializers.ModelSerializer):
     class Meta:
         model = Photos
-        exclude = ['updated_at']
+        fields = "__all__"
+        
+class AlbumSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Album
+        fields = "__all__"
