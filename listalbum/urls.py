@@ -1,8 +1,8 @@
 from django.urls import path
-from .views import WatchListAV, AlbumPhotoListView, ShoppingCartView
+from . import views
 
 urlpatterns = [
-    path('', WatchListAV.as_view(), name='homepage'),
-    path('albumy/<slug:slug>/', AlbumPhotoListView.as_view(), name='album-photos'),
-    path('koszyk/', ShoppingCartView.as_view(), name='shopping-cart'),
+    path('albumy/', views.PhotoAlbumsAV.as_view(), name='albums'),
+    path('albumy/<slug:slug>/photos/', views.AlbumPhotoListView.as_view(), name='album-photo-list'),
+    path('koszyk/', views.ShoppingCartView.as_view(), name='shopping-cart'),
 ]

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ album.title }} - Photos</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container py-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'albums' %}">Albums</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ album.title }}</li>
+            </ol>
+        </nav>
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}" role="alert">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        <h1 class="mb-4">Photos in {{ album.title }}</h1>
+        
+        <form method="post" action="{% url 'album-photo-list' slug=album.slug %}">
+            {% csrf_token %}
+            
+            <div class="row">
+                {% for photo in photos %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ photo.title }}</h5>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="selected_photos" value="{{ photo.id }}" id="photo-{{ photo.id }}">
+                                    <label class="form-check-label" for="photo-{{ photo.id }}">
+                                        Select this photo
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            No photos available in this album.
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            
+            {% if photos %}
+                <div class="d-flex justify-content-between mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-cart-plus"></i> Add Selected to Cart
+                    </button>
+                    <a href="{% url 'shopping-cart' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-cart"></i> View Cart
+                    </a>
+                </div>
+            {% endif %}
+        </form>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Albums</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container py-4">
+        <h1 class="mb-4">Photo Albums</h1>
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}" role="alert">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            {% for album in albums %}
+                <div class="col">
+                    <div class="card h-100">
+                        {% if album.cover_image %}
+                            <img src="{{ album.cover_image.url }}" class="card-img-top" alt="{{ album.title }}">
+                        {% else %}
+                            <div class="card-img-top bg-light text-center py-5">
+                                <p class="text-muted">No cover image</p>
+                            </div>
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">{{ album.title }}</h5>
+                            {% if album.description %}
+                                <p class="card-text">{{ album.description|truncatechars:100 }}</p>
+                            {% endif %}
+                            <p class="card-text">
+                                <small class="text-muted">
+                                    {{ album.photos_set.count }} photos
+                                </small>
+                            </p>
+                        </div>
+                        <div class="card-footer">
+                            <a href="{% url 'album-photo-list' slug=album.slug %}" class="btn btn-primary w-100">
+                                View Photos
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        No albums available yet.
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+        {% if request.user.is_staff %}
+            <div class="mt-4">
+                <a href="{% url 'admin:index' %}" class="btn btn-outline-secondary">
+                    Manage Albums
+                </a>
+            </div>
+        {% endif %}
+        
+        {% if cart_count %}
+            <div class="position-fixed bottom-0 end-0 p-3">
+                <a href="{% url 'shopping-cart' %}" class="btn btn-success">
+                    View Cart ({{ cart_count }})
+                </a>
+            </div>
+        {% endif %}
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
