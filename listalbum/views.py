@@ -7,7 +7,7 @@ from rest_framework import generics, mixins, viewsets, status, filters
 from django_filters.rest_framework import DjangoFilterBackend
 
 
-class WatchListAV(APIView):
+class PhotoAlbumAV(APIView):
 
     def get(self, request):
         albums = Album.objects.all()

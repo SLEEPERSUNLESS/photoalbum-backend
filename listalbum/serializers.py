@@ -4,9 +4,9 @@ from .models import Photos, Album
 class PhotosSerializer(serializers.ModelSerializer):
     class Meta:
         model = Photos
-        fields = "__all__"
+        exclude = ['created_at', 'image']
         
 class AlbumSerializer(serializers.ModelSerializer):
     class Meta:
         model = Album
-        fields = "__all__"
+        exclude = ['slug', 'created_at']
