@@ -9,9 +9,9 @@
 
 2.  **Stworz venv:**
    
-   ```bash
-   python -m venv .venv
-   ```
+    ```bash
+    python -m venv .venv
+    ```
 
 3.  **Instaluj wymagania:**
     
