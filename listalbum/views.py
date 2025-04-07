@@ -1,10 +1,9 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework.response import Response
-from .models import Photos, Album
+from .models import Photo, Album
 from .serializers import PhotosSerializer, AlbumSerializer
 from rest_framework.views import APIView
 from rest_framework import generics, mixins, viewsets, status, filters
-from django_filters.rest_framework import DjangoFilterBackend
 
 
 class PhotoAlbumAV(APIView):
@@ -14,19 +13,17 @@ class PhotoAlbumAV(APIView):
         serializer = AlbumSerializer(albums, many=True)
         return Response(serializer.data)
 
-class AlbumPhotoListView(generics.ListAPIView):
-    serializer_class = PhotosSerializer
-    
-    def get_queryset(self):  # tutaj dostajemy zdjecia z konkretnego albumu ; nie ma albumu to 404
-        album_slug = self.kwargs['slug']
-        album = get_object_or_404(Album, slug=album_slug)
-        return Photos.objects.filter(album=album)
+class AlbumPhotoListView(generics.RetrieveAPIView):
+    queryset = Album.objects.all()
+    serializer_class = AlbumSerializer
+    lookup_field = 'slug'  # Make sure it's 'slug', not 'id'
+
 
 class ShoppingCartView(APIView):
     def post(self, request):
-        # dane z posta z fronta
+        # dane z posta z fronta // tu jeszcze nic nie dziala TODO
         selected_photo_ids = request.POST.getlist('selected_photos')
-        selected_photos = Photos.objects.filter(id__in=selected_photo_ids)
+        selected_photos = Photo.objects.filter(id__in=selected_photo_ids)
         return render(request, 'shopping_cart.html', {'photos': selected_photos})
 
 

@@ -1,12 +1,13 @@
 from rest_framework import serializers
-from .models import Photos, Album
+from .models import Photo, Album
 
 class PhotosSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Photos
-        exclude = ['created_at', 'image']
+        model = Photo
+        exclude = ['date_uploaded']
         
 class AlbumSerializer(serializers.ModelSerializer):
+    photos = PhotosSerializer(many=True)
     class Meta:
         model = Album
-        exclude = ['slug', 'created_at']
+        exclude = ['created_at']
