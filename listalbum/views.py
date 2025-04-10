@@ -4,26 +4,21 @@ from .models import Photo, Album
 from .serializers import PhotosSerializer, AlbumSerializer
 from rest_framework.views import APIView
 from rest_framework import generics, mixins, viewsets, status, filters
+from .pagination import AlbumPagination
 
 
-class PhotoAlbumAV(APIView):
-
-    def get(self, request):
-        albums = Album.objects.all()
-        serializer = AlbumSerializer(albums, many=True)
-        return Response(serializer.data)
-
-class AlbumPhotoListView(generics.RetrieveAPIView):
-    queryset = Album.objects.all()
+class PhotoAlbumAV(generics.ListAPIView):
+    queryset = Album.objects.all().order_by("-created_at")
+    pagination_class = AlbumPagination
     serializer_class = AlbumSerializer
-    lookup_field = 'slug'  # Make sure it's 'slug', not 'id'
+    
+    
 
+class AlbumPhotoListView(generics.ListAPIView): # allow post here later
+    serializer_class = PhotosSerializer
 
-class ShoppingCartView(APIView):
-    def post(self, request):
-        # dane z posta z fronta // tu jeszcze nic nie dziala TODO
-        selected_photo_ids = request.POST.getlist('selected_photos')
-        selected_photos = Photo.objects.filter(id__in=selected_photo_ids)
-        return render(request, 'shopping_cart.html', {'photos': selected_photos})
+    def get_queryset(self):
+        slug = self.kwargs['slug']
+        return Photo.objects.filter(album__slug=slug)
 
-
+# shopping cart

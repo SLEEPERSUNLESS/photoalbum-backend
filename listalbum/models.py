@@ -2,7 +2,7 @@ from django.db import models
 from django.utils.text import slugify
 
 
-class Album(models.Model):
+class Album(models.Model): # add thumbnail field
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -18,6 +18,8 @@ class Album(models.Model):
     def __str__(self):
         return self.title
 
+    def photo_count(self):
+        return self.photos.count()
 
 class Photo(models.Model):
     title = models.CharField(max_length=255)
@@ -28,3 +30,5 @@ class Photo(models.Model):
 
     def __str__(self):
         return self.title
+
+
