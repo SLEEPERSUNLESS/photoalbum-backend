@@ -6,7 +6,7 @@ class AlbumSerializer(serializers.ModelSerializer):
     class Meta:
         model = Album
         # exclude = ['created_at']
-        fields = ["id", "title", "description", "slug", "photo_count"]
+        fields = ["id", "title", "description", "thumbnail", "slug", "photo_count"]
 
 
 class PhotosSerializer(serializers.ModelSerializer):

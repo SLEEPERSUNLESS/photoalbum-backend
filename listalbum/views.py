@@ -21,4 +21,10 @@ class AlbumPhotoListView(generics.ListAPIView): # allow post here later
         slug = self.kwargs['slug']
         return Photo.objects.filter(album__slug=slug)
 
-# shopping cart
+#TODO cart model should have photos and users? idk man ask gpt, sprawdz jak to inni robia
+# class CartAV(generics.CreateAPIView):
+#     serializer_class = PhotosSerializer
+
+#     def get_queryset(self):
+#         slug = self.kwargs['slug']
+#         return Photo.objects.filter(album__slug=slug)

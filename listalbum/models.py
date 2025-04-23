@@ -6,6 +6,7 @@ class Album(models.Model): # add thumbnail field
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    thumbnail = models.ImageField(upload_to='thumbnails', null=True, blank=True)
     slug = models.SlugField(max_length=255, unique=True, null=False)
     # slug to nazwa zmiennej w django -> ten slug bedzie generowal dynamiczny url.
     # mamy album o nazwie przedszkole-3 to stworzy url /przedszkole-3
