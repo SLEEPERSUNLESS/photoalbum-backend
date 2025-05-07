@@ -11,6 +11,8 @@ class PhotoAlbumAV(generics.ListAPIView):
     queryset = Album.objects.all().order_by("-created_at")
     pagination_class = AlbumPagination
     serializer_class = AlbumSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['title']
     
     
 

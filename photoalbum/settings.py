@@ -11,6 +11,24 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import sentry_sdk
+
+# change debug moge to False to check out sentry
+sentry_sdk.init(
+    dsn="https://fa3ba76b5c16ea2cd3f62664087d19aa@o4509238287728640.ingest.de.sentry.io/4509238291988560",
+    # Add data like request headers and IP for users,
+    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+    send_default_pii=True,
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for tracing.
+    traces_sample_rate=1.0,
+    # Set profile_session_sample_rate to 1.0 to profile 100%
+    # of profile sessions.
+    profile_session_sample_rate=1.0,
+    # Set profile_lifecycle to "trace" to automatically
+    # run the profiler on when there is an active transaction
+    profile_lifecycle="trace",
+)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,9 +41,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-$y955ge))jwm%eo9hs@9ysb3t3*!)_k5@kvm3ufyz(h_w35s3k'
 
 # SECURITY WARNING: don't run with debug turned on in production!
+#
+# change to false for sentry
+#
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 
 # Application definition
@@ -40,6 +61,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'listalbum',
     'corsheaders',
+    'django_filters',
 ]
 
 MIDDLEWARE = [

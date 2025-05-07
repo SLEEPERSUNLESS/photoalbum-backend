@@ -19,7 +19,13 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+#remove this later TODO UNCOMMET TO TRY SENTRY
+# def trigger_error(request):
+#     division_by_zero = 1 / 0
+
 urlpatterns = [
+    #remove this later TODO UNCOMMENT TO TRY SENTRY
+    # path('sentry-debug/', trigger_error),
     path('admin/', admin.site.urls),
     path('', include('listalbum.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
