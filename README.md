@@ -19,7 +19,7 @@
     pip install -r requirements.txt
     ```
 
-4.  **Odpal serwis:**
+4.  **Odpal:**
 
     ```bash
     python manage.py runserver
