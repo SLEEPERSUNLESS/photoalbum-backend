@@ -1,4 +1,5 @@
 ## Instalacja
+## !! use changes branch !!
 
 1.  **Klonuj repo:**
 
