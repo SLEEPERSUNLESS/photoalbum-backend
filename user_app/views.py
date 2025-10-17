@@ -35,10 +35,8 @@ def request_code(request):
 		logger.info("OTP requested for non-existent email: %s", email)
 		return Response({"detail": "If the email exists you'll receive a code."})
 
-	# don't use for staff/admin login
 	if user.is_staff or user.is_superuser:
-		logger.warning("OTP request for admin user attempted: %s", email)
-		return Response({"detail": "Admins must use the normal login."}, status=status.HTTP_403_FORBIDDEN)
+		logger.info("OTP request for admin user: %s", email)
 
 	code = EmailOTP.generate_code()
 	expires = timezone.now() + timezone.timedelta(minutes=10)
@@ -74,10 +72,8 @@ def verify_code(request):
 		return Response({"detail": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
 
 	if user.is_staff or user.is_superuser:
-		logger.warning("OTP verify attempted for admin user: %s", email)
-		return Response({"detail": "Admins must use the normal login."}, status=status.HTTP_403_FORBIDDEN)
+		logger.info("OTP verify for admin user: %s", email)
 
-	# find matching unused, unexpired code
 	try:
 		otp = EmailOTP.objects.filter(user=user, code=code, used=False).latest("created_at")
 	except EmailOTP.DoesNotExist:

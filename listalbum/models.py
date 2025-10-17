@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.text import slugify
+from django.conf import settings
 
 
 class Album(models.Model):
@@ -8,8 +9,13 @@ class Album(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     thumbnail = models.ImageField(upload_to='thumbnails', null=True, blank=True)
     slug = models.SlugField(max_length=255, unique=True, null=False)
-    # slug to nazwa zmiennej w django -> ten slug bedzie generowal dynamiczny url.
-    # mamy album o nazwie przedszkole-3 to stworzy url /przedszkole-3
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='albums',
+        null=True,
+        blank=True,
+    )
 
     def save(self, *args, **kwargs):
         if not self.slug:

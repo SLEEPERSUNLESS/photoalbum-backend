@@ -10,11 +10,18 @@ from .pagination import AlbumPagination
 
 class PhotoAlbumAV(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = Album.objects.all().order_by("-created_at")
-    pagination_class = AlbumPagination
     serializer_class = AlbumSerializer
+    pagination_class = AlbumPagination
     filter_backends = [filters.SearchFilter]
     search_fields = ['title']
+
+    def get_queryset(self):
+        # staff users can see everything; regular users see only their albums
+        user = self.request.user
+        qs = Album.objects.all().order_by("-created_at")
+        if user.is_staff:
+            return qs
+        return qs.filter(owner=user)
     
     
 
@@ -24,7 +31,13 @@ class AlbumPhotoListView(generics.ListAPIView): # allow post here later
 
     def get_queryset(self):
         slug = self.kwargs['slug']
-        return Photo.objects.filter(album__slug=slug)
+        user = self.request.user
+        qs = Photo.objects.filter(album__slug=slug)
+        # if user is staff they can see photos in any album; otherwise ensure
+        # the album belongs to them
+        if user.is_staff:
+            return qs
+        return qs.filter(album__owner=user)
 
 #TODO cart model should have photos and users? idk man ask gpt, sprawdz jak to inni robia
 # class CartAV(generics.CreateAPIView):
