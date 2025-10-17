@@ -29,4 +29,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('listalbum.urls')),
     path('profil/', include('user_app.urls')),
+    path('profil/', include('django.contrib.auth.urls')),  # reset hasla TODO might want to change later
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
