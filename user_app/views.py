@@ -4,7 +4,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 import logging
@@ -93,4 +93,19 @@ def verify_code(request):
 	logger.info("OTP verified for %s, issued token", email)
 
 	return Response({"token": token.key})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def logout_view(request):
+	auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+	if auth_header.startswith('Token '):
+		token_key = auth_header.split(' ', 1)[1].strip()
+		Token.objects.filter(key=token_key, user=request.user).delete()
+
+	else:
+		Token.objects.filter(user=request.user).delete()
+
+	logger.info("Logged out user %s", request.user.email)
+	return Response(status=status.HTTP_204_NO_CONTENT)
 
