@@ -28,4 +28,5 @@ urlpatterns = [
     # path('sentry-debug/', trigger_error),
     path('admin/', admin.site.urls),
     path('', include('listalbum.urls')),
+    path('api/auth/', include('user_app.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

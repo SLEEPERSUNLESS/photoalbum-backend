@@ -4,10 +4,12 @@ from .models import Photo, Album
 from .serializers import PhotosSerializer, AlbumSerializer
 from rest_framework.views import APIView
 from rest_framework import generics, mixins, viewsets, status, filters
+from rest_framework.permissions import IsAuthenticated
 from .pagination import AlbumPagination
 
 
 class PhotoAlbumAV(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
     queryset = Album.objects.all().order_by("-created_at")
     pagination_class = AlbumPagination
     serializer_class = AlbumSerializer
@@ -17,6 +19,7 @@ class PhotoAlbumAV(generics.ListAPIView):
     
 
 class AlbumPhotoListView(generics.ListAPIView): # allow post here later
+    permission_classes = [IsAuthenticated]
     serializer_class = PhotosSerializer
 
     def get_queryset(self):
