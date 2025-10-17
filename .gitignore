@@ -1,2 +1,10 @@
+# Ignore Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.eggs/
 .venv
-**/__pycache__/
+venv
