@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.authtoken.models import Token
+from rest_framework_simplejwt.tokens import RefreshToken
 import logging
 
 from .models import EmailOTP
@@ -88,24 +88,17 @@ def verify_code(request):
 	otp.used = True
 	otp.save()
 
-	# create or get token
-	token, _ = Token.objects.get_or_create(user=user)
-	logger.info("OTP verified for %s, issued token", email)
+	# issue JWT refresh + access tokens
+	refresh = RefreshToken.for_user(user)
+	logger.info("OTP verified for %s, issued JWT tokens", email)
 
-	return Response({"token": token.key})
+	return Response({"access": str(refresh.access_token), "refresh": str(refresh)})
 
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
-	auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-	if auth_header.startswith('Token '):
-		token_key = auth_header.split(' ', 1)[1].strip()
-		Token.objects.filter(key=token_key, user=request.user).delete()
-
-	else:
-		Token.objects.filter(user=request.user).delete()
-
+	# With JWTs stored client-side, logout is performed by the client
 	logger.info("Logged out user %s", request.user.email)
 	return Response(status=status.HTTP_204_NO_CONTENT)
 
