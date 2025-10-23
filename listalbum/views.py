@@ -61,6 +61,15 @@ class PhotoAlbumAV(generics.ListAPIView):
             album.thumbnail = thumbnail
             album.save(update_fields=["thumbnail"])
 
+        # Optional: create photos in the same request if provided
+        files = request.FILES.getlist('photos') or []
+        single = request.FILES.get('photo')
+        if single:
+            files.append(single)
+        for f in files:
+            fname = (getattr(f, 'name', '') or '').rsplit('.', 1)[0] or 'photo'
+            Photo.objects.create(album=album, url=f, title=fname)
+
         serializer = self.serializer_class(album)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
