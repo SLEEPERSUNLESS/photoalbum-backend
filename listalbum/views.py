@@ -1,13 +1,13 @@
 from django.shortcuts import render, get_object_or_404
 from django.db import models
 from django.utils.text import slugify
-from django.contrib.auth import get_user_model
 from rest_framework.response import Response
 from .models import Photo, Album, AlbumAccess
 from .serializers import PhotosSerializer, AlbumSerializer
 from rest_framework.views import APIView
 from rest_framework import generics, mixins, viewsets, status, filters
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .pagination import AlbumPagination
 
 
@@ -17,6 +17,7 @@ class PhotoAlbumAV(generics.ListAPIView):
     pagination_class = AlbumPagination
     filter_backends = [filters.SearchFilter]
     search_fields = ['title']
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         # staff users can see everything; regular users see only their albums
@@ -38,21 +39,13 @@ class PhotoAlbumAV(generics.ListAPIView):
 
         title = (request.data.get("title") or "").strip()
         description = (request.data.get("description") or "").strip()
-        owner_email = (request.data.get("owner_email") or "").strip().lower()
+        thumbnail = request.FILES.get("thumbnail")
 
         if not title:
             return Response({"detail": "title is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # resolve owner
+        # owner is always the admin creating the album
         owner = user
-        if owner_email:
-            User = get_user_model()
-            owner, _ = User.objects.get_or_create(email=owner_email, defaults={})
-            # ensure user has an unusable password if newly created
-            if not owner.has_usable_password():
-                # For custom user manager, set_unusable_password exists on model
-                owner.set_unusable_password()
-                owner.save(update_fields=["password"])
 
         # generate unique slug
         base = slugify(title) or "album"
@@ -64,6 +57,9 @@ class PhotoAlbumAV(generics.ListAPIView):
 
         album = Album(title=title, description=description, owner=owner, slug=slug)
         album.save()
+        if thumbnail:
+            album.thumbnail = thumbnail
+            album.save(update_fields=["thumbnail"])
 
         serializer = self.serializer_class(album)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
