@@ -84,7 +84,7 @@ class AlbumPhotoListView(generics.ListAPIView): # allow post here later
         return qs.filter(models.Q(album__owner=user) | models.Q(album__accesses__email__iexact=email)).distinct()
 
 
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework import status
 from rest_framework.response import Response
@@ -119,6 +119,51 @@ def album_access_delete(request, slug, pk: int):
         return Response(status=status.HTTP_204_NO_CONTENT)
     item.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(["GET", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticated, IsAdminUser])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
+def album_meta_view(request, slug):
+    """Retrieve, update, or delete album metadata (admin only).
+
+    - GET: returns album details
+    - PATCH: accepts title, description, and/or thumbnail (multipart or JSON)
+    - DELETE: deletes the album
+    """
+    album = get_object_or_404(Album, slug=slug)
+
+    if request.method == "GET":
+        serializer = AlbumSerializer(album)
+        return Response(serializer.data)
+
+    if request.method == "DELETE":
+        album.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # PATCH
+    title = request.data.get("title")
+    description = request.data.get("description")
+    thumbnail = request.FILES.get("thumbnail")
+
+    changed = False
+    update_fields = []
+    if title is not None:
+        album.title = title
+        update_fields.append("title")
+        changed = True
+    if description is not None:
+        album.description = description
+        update_fields.append("description")
+        changed = True
+    if changed:
+        album.save(update_fields=update_fields)
+    if thumbnail is not None:
+        album.thumbnail = thumbnail
+        album.save(update_fields=["thumbnail"]) 
+
+    serializer = AlbumSerializer(album)
+    return Response(serializer.data)
 
 #TODO cart model should have photos and users? idk man ask gpt, sprawdz jak to inni robia
 # class CartAV(generics.CreateAPIView):

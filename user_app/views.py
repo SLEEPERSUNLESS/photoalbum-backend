@@ -55,7 +55,6 @@ def request_code(request):
 	expires = timezone.now() + timezone.timedelta(minutes=10)
 	otp = EmailOTP.objects.create(user=user, code=code, expires_at=expires)
 
-	# send email (console backend in dev)
 	subject = "Your sign-in code"
 	message = f"Your sign-in code is: {code}\nIt expires in 10 minutes."
 	from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@example.com")
@@ -97,11 +96,9 @@ def verify_code(request):
 		logger.info("Expired or used OTP for %s", email)
 		return Response({"detail": "Invalid or expired code"}, status=status.HTTP_400_BAD_REQUEST)
 
-	# mark used
 	otp.used = True
 	otp.save()
 
-	# issue JWT refresh + access tokens
 	refresh = RefreshToken.for_user(user)
 	logger.info("OTP verified for %s, issued JWT tokens", email)
 
@@ -111,7 +108,6 @@ def verify_code(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
-	# With JWTs stored client-side, logout is performed by the client
 	logger.info("Logged out user %s", request.user.email)
 	return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -153,11 +149,9 @@ def allowed_emails_view(request):
 		return Response({"detail": "email required"}, status=status.HTTP_400_BAD_REQUEST)
 	obj, created = AllowedEmail.objects.get_or_create(email=email.lower(), defaults={"created_by": request.user})
 	if not created:
-		# ensure active
 		if not obj.is_active:
 			obj.is_active = True
 			obj.save(update_fields=["is_active"])
-	# Optionally pre-create user
 	User = get_user_model()
 	if not User.objects.filter(email__iexact=email).exists():
 		user = User.objects.create(email=email, is_active=True)
