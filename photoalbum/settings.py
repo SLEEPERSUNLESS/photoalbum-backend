@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'accounts',
     'listalbum',
     'corsheaders',
     'django_filters',
@@ -189,3 +190,6 @@ LOGGING = {
         'level': 'INFO',
     },
 }
+
+# Use custom email-only user model
+AUTH_USER_MODEL = 'accounts.User'

@@ -1,6 +1,9 @@
 from django.shortcuts import render, get_object_or_404
+from django.db import models
+from django.utils.text import slugify
+from django.contrib.auth import get_user_model
 from rest_framework.response import Response
-from .models import Photo, Album
+from .models import Photo, Album, AlbumAccess
 from .serializers import PhotosSerializer, AlbumSerializer
 from rest_framework.views import APIView
 from rest_framework import generics, mixins, viewsets, status, filters
@@ -17,11 +20,53 @@ class PhotoAlbumAV(generics.ListAPIView):
 
     def get_queryset(self):
         # staff users can see everything; regular users see only their albums
+        # or albums where their email has been granted explicit access
         user = self.request.user
         qs = Album.objects.all().order_by("-created_at")
         if user.is_staff:
             return qs
-        return qs.filter(owner=user)
+        email = getattr(user, 'email', None)
+        if not email:
+            return qs.none()
+        return qs.filter(models.Q(owner=user) | models.Q(accesses__email__iexact=email)).distinct()
+
+    def post(self, request, *args, **kwargs):
+        # Admin-only album creation
+        user = request.user
+        if not user.is_staff:
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        title = (request.data.get("title") or "").strip()
+        description = (request.data.get("description") or "").strip()
+        owner_email = (request.data.get("owner_email") or "").strip().lower()
+
+        if not title:
+            return Response({"detail": "title is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # resolve owner
+        owner = user
+        if owner_email:
+            User = get_user_model()
+            owner, _ = User.objects.get_or_create(email=owner_email, defaults={})
+            # ensure user has an unusable password if newly created
+            if not owner.has_usable_password():
+                # For custom user manager, set_unusable_password exists on model
+                owner.set_unusable_password()
+                owner.save(update_fields=["password"])
+
+        # generate unique slug
+        base = slugify(title) or "album"
+        slug = base
+        i = 2
+        while Album.objects.filter(slug=slug).exists():
+            slug = f"{base}-{i}"
+            i += 1
+
+        album = Album(title=title, description=description, owner=owner, slug=slug)
+        album.save()
+
+        serializer = self.serializer_class(album)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
     
     
 
@@ -34,10 +79,50 @@ class AlbumPhotoListView(generics.ListAPIView): # allow post here later
         user = self.request.user
         qs = Photo.objects.filter(album__slug=slug)
         # if user is staff they can see photos in any album; otherwise ensure
-        # the album belongs to them
+        # the album belongs to them or access granted for their email
         if user.is_staff:
             return qs
-        return qs.filter(album__owner=user)
+        email = getattr(user, 'email', None)
+        if not email:
+            return qs.none()
+        return qs.filter(models.Q(album__owner=user) | models.Q(album__accesses__email__iexact=email)).distinct()
+
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework import status
+from rest_framework.response import Response
+
+
+@api_view(["GET", "POST"])  
+@permission_classes([IsAuthenticated, IsAdminUser])
+def album_access_view(request, slug):
+    """List or grant access emails for a given album slug (admin only)."""
+    album = get_object_or_404(Album, slug=slug)
+    if request.method == "GET":
+        items = album.accesses.all().order_by('email')
+        return Response([
+            {"id": it.id, "email": it.email, "created_at": it.created_at}
+            for it in items
+        ])
+    # POST
+    email = (request.data.get("email") or "").strip().lower()
+    if not email:
+        return Response({"detail": "email required"}, status=status.HTTP_400_BAD_REQUEST)
+    obj, created = AlbumAccess.objects.get_or_create(album=album, email=email)
+    return Response({"id": obj.id, "email": obj.email}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+@api_view(["DELETE"])  
+@permission_classes([IsAuthenticated, IsAdminUser])
+def album_access_delete(request, slug, pk: int):
+    album = get_object_or_404(Album, slug=slug)
+    try:
+        item = AlbumAccess.objects.get(pk=pk, album=album)
+    except AlbumAccess.DoesNotExist:
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    item.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 #TODO cart model should have photos and users? idk man ask gpt, sprawdz jak to inni robia
 # class CartAV(generics.CreateAPIView):

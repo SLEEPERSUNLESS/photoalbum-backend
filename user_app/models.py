@@ -28,3 +28,26 @@ class EmailOTP(models.Model):
 	def generate_code():
 		return f"{random.randint(0, 999999):06d}"
 
+
+class AllowedEmail(models.Model):
+	"""Emails pre-approved by admin to be able to request OTP codes.
+
+	When a code is requested for an allowed email that doesn't yet have a User,
+	we will auto-create a user record with an unusable password and no username
+	usage. This preserves a purely email-based sign-in experience.
+	"""
+
+	email = models.EmailField(unique=True)
+	is_active = models.BooleanField(default=True)
+	created_at = models.DateTimeField(auto_now_add=True)
+	created_by = models.ForeignKey(
+		get_user_model(), on_delete=models.SET_NULL, null=True, blank=True, related_name="allowed_emails_created"
+	)
+
+	class Meta:
+		ordering = ["-created_at"]
+		indexes = [models.Index(fields=["email"]) ]
+
+	def __str__(self):
+		return self.email
+

@@ -39,3 +39,22 @@ class Photo(models.Model):
         return self.title
 
 
+class AlbumAccess(models.Model):
+    """Grants access to an album by email address.
+
+    This decouples access from Django User existence; when a user logs in via
+    OTP using a matching email, they'll be able to access the album.
+    """
+
+    album = models.ForeignKey(Album, on_delete=models.CASCADE, related_name="accesses")
+    email = models.EmailField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("album", "email")
+        indexes = [models.Index(fields=["email"])]
+
+    def __str__(self):
+        return f"{self.album_id}:{self.email}"
+
+
