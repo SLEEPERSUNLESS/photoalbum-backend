@@ -69,6 +69,7 @@ class PhotoAlbumAV(generics.ListAPIView):
 class AlbumPhotoListView(generics.ListAPIView): # allow post here later
     permission_classes = [IsAuthenticated]
     serializer_class = PhotosSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         slug = self.kwargs['slug']
@@ -82,6 +83,30 @@ class AlbumPhotoListView(generics.ListAPIView): # allow post here later
         if not email:
             return qs.none()
         return qs.filter(models.Q(album__owner=user) | models.Q(album__accesses__email__iexact=email)).distinct()
+
+    def post(self, request, *args, **kwargs):
+        # Admin-only: bulk add photos to album
+        user = request.user
+        if not user.is_staff:
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+        slug = self.kwargs['slug']
+        album = get_object_or_404(Album, slug=slug)
+
+        files = request.FILES.getlist('photos') or []
+        # also accept single file under 'photo'
+        single = request.FILES.get('photo')
+        if single:
+            files.append(single)
+        if not files:
+            return Response({"detail": "No photos provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        created = []
+        for f in files:
+            title = (getattr(f, 'name', '') or '').rsplit('.', 1)[0] or 'photo'
+            p = Photo.objects.create(album=album, url=f, title=title)
+            created.append(p)
+        data = PhotosSerializer(created, many=True).data
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 from rest_framework.decorators import api_view, permission_classes, parser_classes
@@ -118,6 +143,19 @@ def album_access_delete(request, slug, pk: int):
     except AlbumAccess.DoesNotExist:
         return Response(status=status.HTTP_204_NO_CONTENT)
     item.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(["DELETE"])  
+@permission_classes([IsAuthenticated, IsAdminUser])
+def album_photo_delete(request, slug, pk: int):
+    """Delete a photo from an album (admin only)."""
+    album = get_object_or_404(Album, slug=slug)
+    try:
+        photo = Photo.objects.get(pk=pk, album=album)
+    except Photo.DoesNotExist:
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    photo.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
