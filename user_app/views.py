@@ -19,9 +19,6 @@ logger = logging.getLogger(__name__)
 @permission_classes([AllowAny])
 def request_code(request):
 	"""Request an email code. Body: {"email": "user@example.com"}
-
-	Creates or reuses an OTP object and emails the code. Returns 200
-	whether user existed or not to avoid user enumeration.
 	"""
 	email = request.data.get("email")
 	if not email:
@@ -34,16 +31,15 @@ def request_code(request):
 	except User.DoesNotExist:
 		user = None
 
-	# Staff/superusers may always request codes (bootstrap path for admin)
 	if user and (user.is_staff or user.is_superuser):
 		pass
 	else:
-		# Enforce allowlist for non-admins
 		allow = AllowedEmail.objects.filter(email__iexact=email, is_active=True).first()
 		if not allow:
 			logger.info("OTP requested for non-allowed email: %s", email)
-			return Response({"detail": "If the email exists you'll receive a code."})
-		# if allowed but user doesn't exist yet, create it
+			return Response({
+				"detail": "Ten adres e-mail nie jest przypisany do żadnego albumu. Skontaktuj się z fotografem."
+			}, status=status.HTTP_403_FORBIDDEN)
 		if not user:
 			user = User.objects.create(email=email, is_active=True)
 			try:
@@ -69,7 +65,7 @@ def request_code(request):
 	except Exception:
 		logger.exception("Failed to send OTP to %s", email)
 
-	return Response({"detail": "If the email exists you'll receive a code."})
+	return Response({"detail": "Kod został wysłany na podany e-mail (jeśli istnieje)."})
 
 
 @api_view(["POST"])
