@@ -9,6 +9,7 @@ from rest_framework import generics, mixins, viewsets, status, filters
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .pagination import AlbumPagination
+from user_app.models import AllowedEmail
 
 
 class PhotoAlbumAV(generics.ListAPIView):
@@ -32,7 +33,6 @@ class PhotoAlbumAV(generics.ListAPIView):
         return qs.filter(models.Q(owner=user) | models.Q(accesses__email__iexact=email)).distinct()
 
     def post(self, request, *args, **kwargs):
-        # Admin-only album creation
         user = request.user
         if not user.is_staff:
             return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
@@ -44,10 +44,8 @@ class PhotoAlbumAV(generics.ListAPIView):
         if not title:
             return Response({"detail": "title is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # owner is always the admin creating the album
         owner = user
 
-        # generate unique slug
         base = slugify(title) or "album"
         slug = base
         i = 2
@@ -61,7 +59,6 @@ class PhotoAlbumAV(generics.ListAPIView):
             album.thumbnail = thumbnail
             album.save(update_fields=["thumbnail"])
 
-        # Optional: create photos in the same request if provided
         files = request.FILES.getlist('photos') or []
         single = request.FILES.get('photo')
         if single:
@@ -127,7 +124,6 @@ from rest_framework.response import Response
 @api_view(["GET", "POST"])  
 @permission_classes([IsAuthenticated, IsAdminUser])
 def album_access_view(request, slug):
-    """List or grant access emails for a given album slug (admin only)."""
     album = get_object_or_404(Album, slug=slug)
     if request.method == "GET":
         items = album.accesses.all().order_by('email')
@@ -158,7 +154,6 @@ def album_access_delete(request, slug, pk: int):
 @api_view(["DELETE"])  
 @permission_classes([IsAuthenticated, IsAdminUser])
 def album_photo_delete(request, slug, pk: int):
-    """Delete a photo from an album (admin only)."""
     album = get_object_or_404(Album, slug=slug)
     try:
         photo = Photo.objects.get(pk=pk, album=album)
@@ -168,16 +163,36 @@ def album_photo_delete(request, slug, pk: int):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def email_suggestions(request):
+    q = request.GET.get('q', '').strip().lower()
+    if not q:
+        return Response([])
+    
+    from django.contrib.auth import get_user_model
+    from django.db.models import Q
+    User = get_user_model()
+    
+    allowed = AllowedEmail.objects.filter(
+        email__icontains=q, is_active=True
+    ).values_list('email', flat=True)[:10]
+    
+    admins = User.objects.filter(
+        Q(is_staff=True) | Q(is_superuser=True),
+        email__icontains=q
+    ).values_list('email', flat=True)[:10]
+    
+    suggestions = list(set(allowed) | set(admins))
+    suggestions.sort()
+    
+    return Response(suggestions[:10])
+
+
 @api_view(["GET", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated, IsAdminUser])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
 def album_meta_view(request, slug):
-    """Retrieve, update, or delete album metadata (admin only).
-
-    - GET: returns album details
-    - PATCH: accepts title, description, and/or thumbnail (multipart or JSON)
-    - DELETE: deletes the album
-    """
     album = get_object_or_404(Album, slug=slug)
 
     if request.method == "GET":
@@ -188,7 +203,6 @@ def album_meta_view(request, slug):
         album.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    # PATCH
     title = request.data.get("title")
     description = request.data.get("description")
     thumbnail = request.FILES.get("thumbnail")
@@ -212,10 +226,3 @@ def album_meta_view(request, slug):
     serializer = AlbumSerializer(album)
     return Response(serializer.data)
 
-#TODO cart model should have photos and users? idk man ask gpt, sprawdz jak to inni robia
-# class CartAV(generics.CreateAPIView):
-#     serializer_class = PhotosSerializer
-
-#     def get_queryset(self):
-#         slug = self.kwargs['slug']
-#         return Photo.objects.filter(album__slug=slug)
