@@ -81,7 +81,7 @@ def verify_code(request):
 		user = User.objects.get(email__iexact=email)
 	except User.DoesNotExist:
 		logger.info("OTP verify for non-existent email: %s", email)
-		return Response({"detail": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
+		return Response({"detail": "Niepoprawny kod"}, status=status.HTTP_400_BAD_REQUEST)
 
 	if user.is_staff or user.is_superuser:
 		logger.info("OTP verify for admin user: %s", email)
@@ -90,11 +90,11 @@ def verify_code(request):
 		otp = EmailOTP.objects.filter(user=user, code=code, used=False).latest("created_at")
 	except EmailOTP.DoesNotExist:
 		logger.info("Invalid OTP for %s", email)
-		return Response({"detail": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
+		return Response({"detail": "Niepoprawny kod"}, status=status.HTTP_400_BAD_REQUEST)
 
 	if not otp.is_valid():
 		logger.info("Expired or used OTP for %s", email)
-		return Response({"detail": "Invalid or expired code"}, status=status.HTTP_400_BAD_REQUEST)
+		return Response({"detail": "Niepoprawny lub przeterminowany kod"}, status=status.HTTP_400_BAD_REQUEST)
 
 	otp.used = True
 	otp.save()
