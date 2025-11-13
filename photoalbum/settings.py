@@ -36,9 +36,9 @@ SECRET_KEY = 'django-insecure-$y955ge))jwm%eo9hs@9ysb3t3*!)_k5@kvm3ufyz(h_w35s3k
 #
 # change to false for sentry
 #
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '131.163.97.69']
 
 
 # Application definition
@@ -76,6 +76,8 @@ AUTHENTICATION_BACKENDS = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://131.163.97.69:3000",
+    "http://131.163.97.69/",
 ]
 
 ROOT_URLCONF = 'photoalbum.urls'
