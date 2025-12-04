@@ -12,6 +12,11 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import sentry_sdk
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # change debug moge to False to check out sentry
 sentry_sdk.init(
@@ -36,7 +41,7 @@ SECRET_KEY = 'django-insecure-$y955ge))jwm%eo9hs@9ysb3t3*!)_k5@kvm3ufyz(h_w35s3k
 #
 # change to false for sentry
 #
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '131.163.97.69']
 
@@ -77,7 +82,7 @@ AUTHENTICATION_BACKENDS = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://131.163.97.69:3000",
-    "http://131.163.97.69/",
+    "http://131.163.97.69",
 ]
 
 ROOT_URLCONF = 'photoalbum.urls'
@@ -157,8 +162,18 @@ MEDIA_ROOT = BASE_DIR / "uploads"
 MEDIA_URL = "/files/"
 
 # Email (development) - prints emails to console. In production replace with SMTP.
+# use this for sending emails to console
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'photo-album <no-reply@example.com>'
+
+# Email configuration for SMTP (Gmail) - use this for sending real emails
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+# EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+# EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
+# EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+# EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+# DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'photo-album <no-reply@gmail.com>')
 
 # DRF config
 REST_FRAMEWORK = {
