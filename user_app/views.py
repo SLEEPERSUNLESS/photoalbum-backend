@@ -41,7 +41,7 @@ def request_code(request):
 				"detail": "Ten adres e-mail nie jest przypisany do żadnego albumu. Skontaktuj się z fotografem."
 			}, status=status.HTTP_403_FORBIDDEN)
 		if not user:
-			user = User.objects.create(email=email, is_active=True)
+			user = User.objects.create(email=email)
 			try:
 				user.set_unusable_password()
 				user.save(update_fields=["password"])
@@ -139,7 +139,7 @@ def allowed_emails_view(request):
 		User = get_user_model()
 		admins_qs = User.objects.filter(Q(is_staff=True) | Q(is_superuser=True)).distinct()
 		admins = [
-			{"id": f"admin-{u.id}", "email": getattr(u, 'email', ''), "is_active": True, "created_at": None, "type": "admin", "is_admin": True}
+			{"id": f"admin-{u.id}", "email": getattr(u, 'email', ''), "created_at": None, "type": "admin", "is_admin": True}
 			for u in admins_qs
 		]
 		return Response(allowed + admins)
@@ -147,29 +147,51 @@ def allowed_emails_view(request):
 	email = request.data.get("email")
 	if not email:
 		return Response({"detail": "email required"}, status=status.HTTP_400_BAD_REQUEST)
-	obj, created = AllowedEmail.objects.get_or_create(email=email.lower(), defaults={"created_by": request.user})
-	if not created:
-		if not obj.is_active:
-			obj.is_active = True
-			obj.save(update_fields=["is_active"])
+	is_admin = request.data.get("is_admin", False)
 	User = get_user_model()
-	if not User.objects.filter(email__iexact=email).exists():
-		user = User.objects.create(email=email, is_active=True)
-		try:
+	if is_admin:
+		# Create or promote to admin
+		user, created = User.objects.get_or_create(email__iexact=email, defaults={"email": email})
+		if created:
 			user.set_unusable_password()
-			user.save(update_fields=["password"])
-		except Exception:
-			pass
-	return Response({"id": obj.id, "email": obj.email, "is_active": obj.is_active}, status=status.HTTP_201_CREATED)
+		user.is_staff = True
+		user.is_superuser = True
+		user.save()
+		return Response({"id": f"admin-{user.id}", "email": user.email, "type": "admin", "is_admin": True}, status=status.HTTP_201_CREATED)
+	else:
+		# Create allowed email
+		obj, created = AllowedEmail.objects.get_or_create(email=email.lower(), defaults={"created_by": request.user})
+		if not created:
+			if not obj.is_active:
+				obj.is_active = True
+				obj.save(update_fields=["is_active"])
+		if not User.objects.filter(email__iexact=email).exists():
+			user = User.objects.create(email=email)
+			try:
+				user.set_unusable_password()
+				user.save(update_fields=["password"])
+			except Exception:
+				pass
+		return Response({"id": obj.id, "email": obj.email, "is_active": obj.is_active}, status=status.HTTP_201_CREATED)
 
 
 @api_view(["DELETE"])  
 @permission_classes([IsAuthenticated, IsAdminUser])
-def allowed_email_delete(request, pk: int):
-	try:
-		obj = AllowedEmail.objects.get(pk=pk)
-	except AllowedEmail.DoesNotExist:
+def allowed_email_delete(request, pk: str):
+	User = get_user_model()
+	if pk.startswith("admin-"):
+		try:
+			user_id = int(pk.split("-")[1])
+			user = User.objects.get(pk=user_id)
+		except (ValueError, User.DoesNotExist):
+			return Response({"detail": "Invalid admin id"}, status=status.HTTP_400_BAD_REQUEST)
+		user.delete()
 		return Response(status=status.HTTP_204_NO_CONTENT)
-	obj.delete()
-	return Response(status=status.HTTP_204_NO_CONTENT)
+	else:
+		try:
+			obj = AllowedEmail.objects.get(pk=int(pk))
+		except (ValueError, AllowedEmail.DoesNotExist):
+			return Response(status=status.HTTP_204_NO_CONTENT)
+		obj.delete()
+		return Response(status=status.HTTP_204_NO_CONTENT)
 

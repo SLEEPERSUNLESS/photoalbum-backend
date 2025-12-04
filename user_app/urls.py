@@ -8,5 +8,5 @@ urlpatterns = [
     path("me/", views.me, name="me"),
     # admin-only endpoints
     path("admin/allowed_emails/", views.allowed_emails_view, name="allowed_emails"),
-    path("admin/allowed_emails/<int:pk>/", views.allowed_email_delete, name="allowed_email_delete"),
+    path("admin/allowed_emails/<str:pk>/", views.allowed_email_delete, name="allowed_email_delete"),
 ]

@@ -16,6 +16,5 @@ class Command(BaseCommand):
             user.set_unusable_password()
         user.is_staff = True
         user.is_superuser = True
-        user.is_active = True
         user.save()
         self.stdout.write(self.style.SUCCESS(f"User {email} is now admin (staff+superuser)."))
