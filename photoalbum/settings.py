@@ -13,10 +13,10 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import sentry_sdk
 import os
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+#load_dotenv()
 
 # change debug moge to False to check out sentry
 sentry_sdk.init(
@@ -219,4 +219,4 @@ PAYU_BASE_URL = 'https://secure.snd.payu.com'
 PAYU_NOTIFY_URL = 'https://twojadomena.pl/api/payment/notify/'
 
 # Frontend URL for PayU continueUrl
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+FRONTEND_URL = 'http://20.251.168.46:3000'
