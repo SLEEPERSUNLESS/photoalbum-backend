@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import PhotoAlbumAV, AlbumPhotoListView, album_access_view, album_access_delete, album_meta_view, album_photo_delete, email_suggestions
+from .views import PhotoAlbumAV, AlbumPhotoListView, album_access_view, album_access_delete, album_meta_view, album_photo_delete, email_suggestions, create_payment, payu_notify
 
 urlpatterns = [
     path('albums/', PhotoAlbumAV.as_view(), name='album-list'),
@@ -10,4 +10,6 @@ urlpatterns = [
     path('albums/<slug:slug>/access/<int:pk>/', album_access_delete, name='album-access-delete'),
     path('albums/<slug:slug>/meta/', album_meta_view, name='album-meta'),
     path('emails/suggest/', email_suggestions, name='email-suggestions'),
+    path('payment/create/', create_payment, name='create-payment'),
+    path('payment/notify/', payu_notify, name='payu-notify'),
 ]

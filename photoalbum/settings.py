@@ -43,7 +43,7 @@ SECRET_KEY = 'django-insecure-$y955ge))jwm%eo9hs@9ysb3t3*!)_k5@kvm3ufyz(h_w35s3k
 #
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '131.163.97.69']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '20.251.168.46']
 
 
 # Application definition
@@ -81,8 +81,8 @@ AUTHENTICATION_BACKENDS = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://131.163.97.69:3000",
-    "http://131.163.97.69",
+    "http://20.251.168.46:3000",
+    "http://20.251.168.46",
 ]
 
 ROOT_URLCONF = 'photoalbum.urls'
@@ -210,3 +210,13 @@ LOGGING = {
 
 # Use custom email-only user model
 AUTH_USER_MODEL = 'accounts.User'
+
+# SANDBOX PAYU CONFIGURATION - public address for testing
+PAYU_POS_ID = '300746'
+PAYU_CLIENT_ID = '300746'
+PAYU_CLIENT_SECRET = '2ee86a66e5d97e3fadc400c9f19b065d'
+PAYU_BASE_URL = 'https://secure.snd.payu.com'
+PAYU_NOTIFY_URL = 'https://twojadomena.pl/api/payment/notify/'
+
+# Frontend URL for PayU continueUrl
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')

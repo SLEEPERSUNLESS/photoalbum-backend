@@ -2,14 +2,16 @@ from django.shortcuts import render, get_object_or_404
 from django.db import models
 from django.utils.text import slugify
 from rest_framework.response import Response
-from .models import Photo, Album, AlbumAccess
-from .serializers import PhotosSerializer, AlbumSerializer
-from rest_framework.views import APIView
-from rest_framework import generics, mixins, viewsets, status, filters
+from .models import Photo, Album, AlbumAccess, Order
+from .serializers import PhotosSerializer, AlbumSerializer, OrderSerializer
+from rest_framework import generics, status, filters
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .pagination import AlbumPagination
 from user_app.models import AllowedEmail
+import requests
+from django.conf import settings
+import uuid
 
 
 class PhotoAlbumAV(generics.ListAPIView):
@@ -225,4 +227,119 @@ def album_meta_view(request, slug):
 
     serializer = AlbumSerializer(album)
     return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_payment(request):
+    serializer = OrderSerializer(data=request.data, context={'request': request})
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    order = serializer.save()
+    
+    payu_order_id = str(uuid.uuid4())
+    order.payu_order_id = payu_order_id
+    order.save()
+    
+    order_data = {
+        "notifyUrl": settings.PAYU_NOTIFY_URL,
+        "continueUrl": f"{settings.FRONTEND_URL}/payment/success",
+        "customerIp": request.META.get('REMOTE_ADDR', '127.0.0.1'),
+        "merchantPosId": settings.PAYU_POS_ID,
+        "description": f"Zamówienie zdjęć - {order.id}",
+        "currencyCode": "PLN",
+        "totalAmount": str(int(order.total_amount * 100)),
+        "extOrderId": payu_order_id,
+        "products": [
+            {
+                "name": f"Zdjęcie {photo.title}",
+                "unitPrice": str(int(photo.price * 100)),
+                "quantity": "1"
+            } for photo in order.photos.all()
+        ],
+        "buyer": {
+            "email": request.user.email,
+            "firstName": "Nie podano",
+            "lastName": "Nie podano",
+        }
+    }
+    
+    auth_response = requests.post(
+        f"{settings.PAYU_BASE_URL}/pl/standard/user/oauth/authorize",
+        data={
+            'grant_type': 'client_credentials',
+            'client_id': settings.PAYU_CLIENT_ID,
+            'client_secret': settings.PAYU_CLIENT_SECRET
+        },
+        headers={'Content-Type': 'application/x-www-form-urlencoded'}
+    )
+    
+    if auth_response.status_code != 200:
+        return Response({"detail": f"Błąd autoryzacji PayU: {auth_response.text}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    try:
+        token = auth_response.json()['access_token']
+    except (ValueError, KeyError):
+        return Response({"detail": "Nieprawidłowa odpowiedź autoryzacji PayU"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    order_response = requests.post(
+        f"{settings.PAYU_BASE_URL}/api/v2_1/orders",
+        json=order_data,
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {token}'
+        },
+        allow_redirects=False
+    )
+    
+    if order_response.status_code != 302:
+        return Response({
+            "detail": f"Błąd tworzenia zamówienia w PayU: {order_response.text}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    try:
+        payu_data = order_response.json()
+    except ValueError:
+        return Response({
+            "detail": "Nieprawidłowa odpowiedź JSON od PayU"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    if payu_data.get("status", {}).get("statusCode") != "SUCCESS":
+        return Response({
+            "detail": f"PayU zwróciło błąd: {payu_data}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    redirect_url = payu_data["redirectUri"]
+    
+    try:
+        payu_data = order_response.json()
+    except ValueError:
+        return Response({"detail": f"Nieprawidłowa odpowiedź zamówienia PayU: {order_response.text}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    redirect_url = payu_data['redirectUri']
+    
+    return Response({
+        "order_id": order.id,
+        "payu_order_id": payu_order_id,
+        "redirect_url": redirect_url
+    })
+
+
+@api_view(['POST'])
+def payu_notify(request):
+    data = request.data
+    order_id = data.get('extOrderId')
+    payu_status = data.get('status')
+    
+    try:
+        order = Order.objects.get(payu_order_id=order_id)
+        if payu_status == 'COMPLETED':
+            order.status = 'paid'
+            from django.utils import timezone
+            order.paid_at = timezone.now()
+            order.save()
+    except Order.DoesNotExist:
+        pass
+    
+    return Response({"status": "OK"})
 
