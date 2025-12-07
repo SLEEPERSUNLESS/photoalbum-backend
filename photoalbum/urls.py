@@ -26,5 +26,5 @@ def health_check(request):
 urlpatterns = [
     path('auth/health/', health_check),
     path('', include('listalbum.urls')),
-    path('auth/', include('user_app.urls')),
+    path('api/auth/', include('user_app.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
