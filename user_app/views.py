@@ -195,3 +195,15 @@ def allowed_email_delete(request, pk: str):
 		obj.delete()
 		return Response(status=status.HTTP_204_NO_CONTENT)
 
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def health_check(request):
+	"""Return basic server information."""
+	return Response({
+		"status": "ok",
+		"server": "PhotoAlbum Backend",
+		"version": "1.0",
+		"timestamp": timezone.now().isoformat()
+	})
+
