@@ -17,14 +17,14 @@ Including another URLconf
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
 
-#remove this later TODO UNCOMMET TO TRY SENTRY
-# def trigger_error(request):
-#     division_by_zero = 1 / 0
+
+def health_check(request):
+    return JsonResponse({"status": "ok"}, status=200)
 
 urlpatterns = [
-    #remove this later TODO UNCOMMENT TO TRY SENTRY
-    # path('sentry-debug/', trigger_error),
+    path('auth/health/', health_check),
     path('', include('listalbum.urls')),
     path('api/auth/', include('user_app.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
