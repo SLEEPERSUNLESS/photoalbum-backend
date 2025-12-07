@@ -32,5 +32,6 @@ jobs:
 
             # Restart app with pm2
             pm2 restart ${{ secrets.SSH_PROJECTNAME }}
+            pm2 restart ${{ secrets.SSH_DJANGO }}
           '"
   
