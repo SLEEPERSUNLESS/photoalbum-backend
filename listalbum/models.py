@@ -34,6 +34,7 @@ class Photo(models.Model):
     album = models.ForeignKey(
         Album, on_delete=models.CASCADE, related_name='photos')
     date_uploaded = models.DateTimeField(auto_now_add=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=5.00)
 
     def __str__(self):
         return self.title
