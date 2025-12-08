@@ -43,7 +43,7 @@ SECRET_KEY = 'django-insecure-$y955ge))jwm%eo9hs@9ysb3t3*!)_k5@kvm3ufyz(h_w35s3k
 #
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '20.251.168.46']
+ALLOWED_HOSTS = ['20.251.168.46', 'localhost']
 
 
 # Application definition
@@ -163,17 +163,17 @@ MEDIA_URL = "/files/"
 
 # Email (development) - prints emails to console. In production replace with SMTP.
 # use this for sending emails to console
-#EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-#DEFAULT_FROM_EMAIL = 'photo-album <no-reply@example.com>'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'photo-album <no-reply@example.com>'
 
 # Email configuration for SMTP (Gmail) - use this for sending real emails
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'avari1407@gmail.com'
-EMAIL_HOST_PASSWORD = 'synq zuey uyel vxez'
-DEFAULT_FROM_EMAIL = 'photo-album <no-reply@gmail.com>'
+#EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+#EMAIL_HOST = 'smtp.gmail.com'
+#EMAIL_PORT = 587
+#EMAIL_USE_TLS = True
+#EMAIL_HOST_USER = 'avari1407@gmail.com'
+#EMAIL_HOST_PASSWORD = 'synq zuey uyel vxez'
+#DEFAULT_FROM_EMAIL = 'photo-album <no-reply@gmail.com>'
 
 # DRF config
 REST_FRAMEWORK = {
