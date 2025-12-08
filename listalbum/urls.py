@@ -1,5 +1,5 @@
-from django.urls import path
-from .views import PhotoAlbumAV, AlbumPhotoListView, album_access_view, album_access_delete, album_meta_view, album_photo_delete, email_suggestions, create_payment, payu_notify
+#from django.urls import path
+#from .views import PhotoAlbumAV, AlbumPhotoListView, album_access_view, album_access_delete, album_meta_view, album_photo_delete, email_suggestions, create_payment, payu_notify
 
 urlpatterns = [
     # path('albums/', PhotoAlbumAV.as_view(), name='album-list'),

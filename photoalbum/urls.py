@@ -14,7 +14,7 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.urls import path, include
+from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse
@@ -25,7 +25,7 @@ def health_check(request):
     return JsonResponse({"status": "ok123"}, status=200)
 
 urlpatterns = [
-    path('', include('listalbum.urls')),
+    #path('', include('listalbum.urls')),
     #path('api/auth/', include('user_app.urls')),
     #user_app
     path("auth/request_code/", views.request_code, name="request_code"),

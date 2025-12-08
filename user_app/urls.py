@@ -1,5 +1,5 @@
-from django.urls import path
-from . import views
+#from django.urls import path
+#from . import views
 
 urlpatterns = [
     #path("request_code/", views.request_code, name="request_code"),
