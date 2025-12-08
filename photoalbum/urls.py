@@ -18,13 +18,15 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse
+from user_app import views
 
 
 def health_check(request):
-    return JsonResponse({"status": "ok"}, status=200)
+    return JsonResponse({"status": "ok123"}, status=200)
 
 urlpatterns = [
     path('auth/health/', health_check),
     path('', include('listalbum.urls')),
     path('api/auth/', include('user_app.urls')),
+    path("request_code/", views.request_code, name="request_code"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
