@@ -28,5 +28,5 @@ urlpatterns = [
     path('auth/health/', health_check),
     path('', include('listalbum.urls')),
     path('api/auth/', include('user_app.urls')),
-    path("request_code/", views.request_code, name="request_code"),
+    path("api/auth/request_code/", views.request_code, name="request_code"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
