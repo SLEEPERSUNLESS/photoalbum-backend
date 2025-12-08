@@ -19,7 +19,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse
 from user_app import views
-
+from listalbum.views import PhotoAlbumAV, AlbumPhotoListView, album_access_view, album_access_delete, album_meta_view, album_photo_delete, email_suggestions, create_payment, payu_notify
 
 def health_check(request):
     return JsonResponse({"status": "ok123"}, status=200)
@@ -37,4 +37,14 @@ urlpatterns = [
     path("auth/admin/allowed_emails/", views.allowed_emails_view, name="allowed_emails"),
     path("auth/admin/allowed_emails/<str:pk>/", views.allowed_email_delete, name="allowed_email_delete"),
     #listalbum
+    path('albums/', PhotoAlbumAV.as_view(), name='album-list'),
+    path('albums/<slug:slug>/', AlbumPhotoListView.as_view(), name='album-photos'),
+    path('albums/<slug:slug>/photos/<int:pk>/', album_photo_delete, name='album-photo-delete'),
+    # Admin-only: manage album access by email
+    path('albums/<slug:slug>/access/', album_access_view, name='album-access'),
+    path('albums/<slug:slug>/access/<int:pk>/', album_access_delete, name='album-access-delete'),
+    path('albums/<slug:slug>/meta/', album_meta_view, name='album-meta'),
+    path('emails/suggest/', email_suggestions, name='email-suggestions'),
+    path('payment/create/', create_payment, name='create-payment'),
+    path('payment/notify/', payu_notify, name='payu-notify'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
