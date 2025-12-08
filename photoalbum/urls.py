@@ -25,8 +25,16 @@ def health_check(request):
     return JsonResponse({"status": "ok123"}, status=200)
 
 urlpatterns = [
-    path('auth/health/', health_check),
     path('', include('listalbum.urls')),
-    path('api/auth/', include('user_app.urls')),
+    #path('api/auth/', include('user_app.urls')),
+    #user_app
     path("auth/request_code/", views.request_code, name="request_code"),
+    path("auth/verify_code/", views.verify_code, name="verify_code"),
+    path("auth/logout/", views.logout_view, name="logout"),
+    path("auth/me/", views.me, name="me"),
+    path("auth/health/", views.health_check, name="health_check"),
+    # admin-only endpoints
+    path("auth/admin/allowed_emails/", views.allowed_emails_view, name="allowed_emails"),
+    path("auth/admin/allowed_emails/<str:pk>/", views.allowed_email_delete, name="allowed_email_delete"),
+    #listalbum
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
