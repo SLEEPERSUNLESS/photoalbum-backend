@@ -35,5 +35,9 @@ jobs:
             # Restart app with pm2
             pm2 restart ${{ secrets.SSH_PROJECTNAME }}
             pm2 restart ${{ secrets.SSH_DJANGO }}
+
+            # Logs
+            pm2 logs ${{ secrets.SSH_PROJECTNAME }} --nostream
+            pm2 logs ${{ secrets.SSH_DJANGO }} --nostream
           '"
   
