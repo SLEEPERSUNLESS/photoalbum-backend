@@ -92,6 +92,16 @@ class AlbumPhotoListView(generics.ListAPIView): # allow post here later
             return qs.none()
         return qs.filter(models.Q(album__owner=user) | models.Q(album__accesses__email__iexact=email)).distinct()
 
+    def list(self, request, *args, **kwargs):
+        slug = self.kwargs['slug']
+        album = get_object_or_404(Album, slug=slug)
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'title': album.title,
+            'photos': serializer.data
+        })
+
     def post(self, request, *args, **kwargs):
         # Admin-only: bulk add photos to album
         user = request.user
