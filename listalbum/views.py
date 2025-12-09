@@ -235,7 +235,7 @@ def album_meta_view(request, slug):
     album = get_object_or_404(Album, slug=slug)
 
     if request.method == "GET":
-        serializer = AlbumSerializer(album)
+        serializer = AlbumSerializer(album, context={'request': request})
         return Response(serializer.data)
 
     if request.method == "DELETE":
@@ -280,7 +280,7 @@ def album_meta_view(request, slug):
         album.thumbnail = thumbnail
         album.save(update_fields=["thumbnail"]) 
 
-    serializer = AlbumSerializer(album)
+    serializer = AlbumSerializer(album, context={'request': request})
     return Response(serializer.data)
 
 
@@ -842,6 +842,10 @@ def serve_photo(request, photo_uuid):
         
         response = HttpResponse(content, content_type=content_type)
         response['Cache-Control'] = 'private, max-age=3600'
+        # Add CORS headers to allow cross-origin requests
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type'
         return response
     
     try:
@@ -874,8 +878,94 @@ def serve_photo(request, photo_uuid):
         
         response = HttpResponse(output.getvalue(), content_type='image/webp')
         response['Cache-Control'] = 'private, max-age=3600'
+        # Add CORS headers to allow cross-origin requests
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type'
         return response
         
     except Exception as e:
         return Response({"detail": f"Error processing image: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def serve_thumbnail(request, album_slug):
+    """Serve album thumbnail with CORS headers to prevent CORB issues."""
+    try:
+        album = Album.objects.get(slug=album_slug)
+    except Album.DoesNotExist:
+        return Response({"detail": "Album not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    if not album.thumbnail:
+        return Response({"detail": "Thumbnail not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    if not album.thumbnail.path or not os.path.exists(album.thumbnail.path):
+        return Response({"detail": "Thumbnail file not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    file_path = album.thumbnail.path
+    
+    try:
+        with open(file_path, 'rb') as f:
+            content = f.read()
+        
+        ext = os.path.splitext(file_path)[1].lower()
+        content_types = {
+            '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+            '.png': 'image/png', '.gif': 'image/gif',
+            '.webp': 'image/webp', '.jfif': 'image/jpeg'
+        }
+        content_type = content_types.get(ext, 'application/octet-stream')
+        
+        response = HttpResponse(content, content_type=content_type)
+        response['Cache-Control'] = 'public, max-age=3600'
+        # Add CORS headers to allow cross-origin requests
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
+        
+    except Exception as e:
+        return Response({"detail": f"Error serving thumbnail: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def serve_thumbnail(request, album_slug):
+    """Serve album thumbnail with CORS headers to prevent CORB issues."""
+    try:
+        album = Album.objects.get(slug=album_slug)
+    except Album.DoesNotExist:
+        return Response({"detail": "Album not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    if not album.thumbnail:
+        return Response({"detail": "Thumbnail not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    if not album.thumbnail.path or not os.path.exists(album.thumbnail.path):
+        return Response({"detail": "Thumbnail file not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    file_path = album.thumbnail.path
+    
+    try:
+        with open(file_path, 'rb') as f:
+            content = f.read()
+        
+        ext = os.path.splitext(file_path)[1].lower()
+        content_types = {
+            '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+            '.png': 'image/png', '.gif': 'image/gif',
+            '.webp': 'image/webp', '.jfif': 'image/jpeg'
+        }
+        content_type = content_types.get(ext, 'application/octet-stream')
+        
+        response = HttpResponse(content, content_type=content_type)
+        response['Cache-Control'] = 'public, max-age=3600'
+        # Add CORS headers to allow cross-origin requests
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
+        
+    except Exception as e:
+        return Response({"detail": f"Error serving thumbnail: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
