@@ -212,9 +212,10 @@ LOGGING = {
 AUTH_USER_MODEL = 'accounts.User'
 
 # SANDBOX PAYU CONFIGURATION - public address for testing
-PAYU_POS_ID = '300746'
-PAYU_CLIENT_ID = '300746'
-PAYU_CLIENT_SECRET = '2ee86a66e5d97e3fadc400c9f19b065d'
+PAYU_POS_ID = '501658'
+PAYU_CLIENT_ID = '501658'
+PAYU_CLIENT_SECRET = '34102cb8c48c486fc26b1762e1aca38e'
+PAYU_SECOND_KEY = '8870910418a10581105d1877b87f6d29'  # MD5 key from PayU panel for signature verification
 PAYU_BASE_URL = 'https://secure.snd.payu.com'
 PAYU_NOTIFY_URL = 'https://twojadomena.pl/api/payment/notify/'
 

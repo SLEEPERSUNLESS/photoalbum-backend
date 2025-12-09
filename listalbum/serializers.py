@@ -25,7 +25,7 @@ class AlbumSerializer(serializers.ModelSerializer):
 class PhotosSerializer(serializers.ModelSerializer):
     class Meta:
         model = Photo
-        exclude = ['date_uploaded']
+        fields = ['id', 'title', 'url', 'album', 'price', 'uuid']
 
 
 class OrderSerializer(serializers.ModelSerializer):
