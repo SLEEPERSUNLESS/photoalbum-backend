@@ -16,6 +16,7 @@ class AlbumSerializer(serializers.ModelSerializer):
             "thumbnail",
             "slug",
             "photo_count",
+            "access_count",
             "owner_id",
             "owner_email",
         ]

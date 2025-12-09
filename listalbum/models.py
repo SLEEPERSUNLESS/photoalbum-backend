@@ -28,6 +28,9 @@ class Album(models.Model):
     def photo_count(self):
         return self.photos.count()
 
+    def access_count(self):
+        return self.accesses.count()
+
 class Photo(models.Model):
     title = models.CharField(max_length=255)
     url = models.ImageField(upload_to='photos', null=True, blank=True)
