@@ -343,3 +343,16 @@ def payu_notify(request):
     
     return Response({"status": "OK"})
 
+@api_view(["GET"])
+def order_history(request):
+    user = request.user
+    if not user.is_authenticated:
+        return Response({"detail": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    if user.is_staff:
+        orders = Order.objects.all().order_by('-created_at')
+    else:
+        orders = Order.objects.filter(user=user).order_by('-created_at')
+    serializer = OrderSerializer(orders, many=True)
+    return Response(serializer.data)
+

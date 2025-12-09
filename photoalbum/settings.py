@@ -163,17 +163,17 @@ MEDIA_URL = "/files/"
 
 # Email (development) - prints emails to console. In production replace with SMTP.
 # use this for sending emails to console
-#EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-#DEFAULT_FROM_EMAIL = 'photo-album <no-reply@example.com>'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'photo-album <no-reply@example.com>'
 
 # Email configuration for SMTP (Gmail) - use this for sending real emails
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'avari1407@gmail.com'
-EMAIL_HOST_PASSWORD = 'synq zuey uyel vxez'
-DEFAULT_FROM_EMAIL = 'photo-album <no-reply@gmail.com>'
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'avari1407@gmail.com'
+# EMAIL_HOST_PASSWORD = 'synq zuey uyel vxez'
+# DEFAULT_FROM_EMAIL = 'photo-album <no-reply@gmail.com>'
 
 # DRF config
 REST_FRAMEWORK = {
