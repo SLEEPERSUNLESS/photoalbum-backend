@@ -19,7 +19,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse
 from user_app import views
-from listalbum.views import PhotoAlbumAV, AlbumPhotoListView, order_history, album_access_view, album_access_delete, album_meta_view, album_photo_delete, email_suggestions, create_payment, payu_notify, check_order_status, download_order_photos
+from listalbum.views import PhotoAlbumAV, AlbumPhotoListView, order_history, album_access_view, album_access_delete, album_meta_view, album_photo_delete, email_suggestions, create_payment, payu_notify, check_order_status, download_order_photos, serve_photo
 
 def health_check(request):
     return JsonResponse({"status": "ok123"}, status=200)
@@ -50,4 +50,5 @@ urlpatterns = [
     path('api/orders/history/', order_history, name='order-history'),
     path('api/orders/<int:order_id>/check-status/', check_order_status, name='check-order-status'),
     path('api/orders/<int:order_id>/download/', download_order_photos, name='download-order-photos'),
+    path('api/photos/<uuid:photo_uuid>/', serve_photo, name='serve-photo'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

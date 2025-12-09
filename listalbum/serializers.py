@@ -23,9 +23,17 @@ class AlbumSerializer(serializers.ModelSerializer):
 
 
 class PhotosSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+    
     class Meta:
         model = Photo
         fields = ['id', 'title', 'url', 'album', 'price', 'uuid']
+    
+    def get_url(self, obj):
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(f'/api/photos/{obj.uuid}/')
+        return f'/api/photos/{obj.uuid}/'
 
 
 class OrderSerializer(serializers.ModelSerializer):

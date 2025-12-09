@@ -21,6 +21,7 @@ from django.http import HttpResponse
 import zipfile
 import io
 import os
+from PIL import Image
 
 
 
@@ -133,7 +134,7 @@ class AlbumPhotoListView(generics.ListAPIView): # allow post here later
             title = (getattr(f, 'name', '') or '').rsplit('.', 1)[0] or 'photo'
             p = Photo.objects.create(album=album, url=f, title=title)
             created.append(p)
-        data = PhotosSerializer(created, many=True).data
+        data = PhotosSerializer(created, many=True, context={'request': request}).data
         return Response(data, status=status.HTTP_201_CREATED)
     
     
@@ -672,4 +673,140 @@ def download_order_photos(request, order_id):
     response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="zamowienie_{order_id}.zip"'
     return response
+
+
+def apply_watermark(image, watermark_path):
+    try:
+        watermark = Image.open(watermark_path).convert("RGBA")
+    except Exception:
+        return image
+    
+    watermark.putalpha(Image.eval(watermark.getchannel('A'), lambda x: int(x * 0.75)))
+    
+    if image.mode != 'RGBA':
+        image = image.convert('RGBA')
+    
+    img_w, img_h = image.size
+    wm_w, wm_h = watermark.size
+    
+    watermark_layer = Image.new('RGBA', image.size, (0, 0, 0, 0))
+    
+    for y in range(0, img_h, wm_h):
+        for x in range(0, img_w, wm_w):
+            watermark_layer.paste(watermark, (x, y), watermark)
+    
+    return Image.alpha_composite(image, watermark_layer)
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@perm_classes([AllowAny])
+def serve_photo(request, photo_uuid):
+    from rest_framework_simplejwt.authentication import JWTAuthentication
+    
+    user = None
+    jwt_auth = JWTAuthentication()
+    
+    try:
+        auth_result = jwt_auth.authenticate(request)
+        if auth_result:
+            user = auth_result[0]
+    except Exception:
+        pass
+    
+    if not user:
+        token = request.GET.get('token')
+        if token:
+            try:
+                from rest_framework_simplejwt.tokens import AccessToken
+                validated = AccessToken(token)
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                user = User.objects.get(id=validated['user_id'])
+            except Exception:
+                pass
+    
+    if not user:
+        return Response({"detail": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    try:
+        photo = Photo.objects.get(uuid=photo_uuid)
+    except Photo.DoesNotExist:
+        return Response({"detail": "Photo not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    email = getattr(user, 'email', None)
+    album = photo.album
+    
+    has_album_access = (
+        user.is_staff or
+        album.owner == user or
+        (email and album.accesses.filter(email__iexact=email).exists())
+    )
+    
+    if not has_album_access:
+        return Response({"detail": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+    
+    serve_original = user.is_staff or Order.objects.filter(
+        user=user,
+        status='paid',
+        photos=photo
+    ).exists()
+    
+    if not photo.url or not photo.url.path:
+        return Response({"detail": "Photo file not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    file_path = photo.url.path
+    if not os.path.exists(file_path):
+        return Response({"detail": "Photo file not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    if serve_original:
+        with open(file_path, 'rb') as f:
+            content = f.read()
+        
+        ext = os.path.splitext(file_path)[1].lower()
+        content_types = {
+            '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+            '.png': 'image/png', '.gif': 'image/gif',
+            '.webp': 'image/webp'
+        }
+        content_type = content_types.get(ext, 'application/octet-stream')
+        
+        response = HttpResponse(content, content_type=content_type)
+        response['Cache-Control'] = 'private, max-age=3600'
+        return response
+    
+    try:
+        img = Image.open(file_path)
+        
+        max_width, max_height = 1280, 720
+        img_w, img_h = img.size
+        
+        if img_w > max_width or img_h > max_height:
+            ratio = min(max_width / img_w, max_height / img_h)
+            new_size = (int(img_w * ratio), int(img_h * ratio))
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+        
+        watermark_path = os.path.join(settings.MEDIA_ROOT, 'watermark.png')
+        if os.path.exists(watermark_path):
+            img = apply_watermark(img, watermark_path)
+        
+        if img.mode in ('RGBA', 'LA', 'P'):
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+            img = background
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+        
+        output = io.BytesIO()
+        img.save(output, format='WEBP', quality=80)
+        output.seek(0)
+        
+        response = HttpResponse(output.getvalue(), content_type='image/webp')
+        response['Cache-Control'] = 'private, max-age=3600'
+        return response
+        
+    except Exception as e:
+        return Response({"detail": f"Error processing image: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
