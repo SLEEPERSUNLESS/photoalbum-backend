@@ -43,7 +43,7 @@ SECRET_KEY = 'django-insecure-$y955ge))jwm%eo9hs@9ysb3t3*!)_k5@kvm3ufyz(h_w35s3k
 #
 DEBUG = True
 
-ALLOWED_HOSTS = ['20.251.168.46', 'localhost']
+ALLOWED_HOSTS = ['20.251.168.46', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -219,4 +219,4 @@ PAYU_BASE_URL = 'https://secure.snd.payu.com'
 PAYU_NOTIFY_URL = 'https://twojadomena.pl/api/payment/notify/'
 
 # Frontend URL for PayU continueUrl
-FRONTEND_URL = 'http://20.251.168.46:3000'
+FRONTEND_URL = 'http://localhost:3000'
