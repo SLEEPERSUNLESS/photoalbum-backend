@@ -8,7 +8,6 @@ class AlbumSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Album
-        # exclude = ['created_at']
         fields = [
             "id",
             "title",
@@ -19,6 +18,8 @@ class AlbumSerializer(serializers.ModelSerializer):
             "access_count",
             "owner_id",
             "owner_email",
+            "photo_price",
+            "full_album_price",
         ]
 
 
@@ -49,8 +50,36 @@ class OrderSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         photo_ids = validated_data.pop('photo_ids')
         user = self.context['request'].user
-        photos = Photo.objects.filter(id__in=photo_ids)
-        total_amount = sum(photo.price for photo in photos)
+        photos = Photo.objects.filter(id__in=photo_ids).select_related('album')
+        
+        # Group photos by album
+        album_photos = {}
+        for photo in photos:
+            album_id = photo.album_id
+            if album_id not in album_photos:
+                album_photos[album_id] = {
+                    'album': photo.album,
+                    'photos': [],
+                    'total': 0
+                }
+            album_photos[album_id]['photos'].append(photo)
+            album_photos[album_id]['total'] += photo.price
+        
+        # Calculate total with album discounts
+        total_amount = 0
+        for album_id, data in album_photos.items():
+            album = data['album']
+            album_total_photos = album.photos.count()
+            order_album_photos = len(data['photos'])
+            
+            # If all photos from album are in order and album has discount
+            if (album_total_photos == order_album_photos and 
+                album.full_album_price is not None and 
+                album.full_album_price < data['total']):
+                total_amount += album.full_album_price
+            else:
+                total_amount += data['total']
+        
         order = Order.objects.create(user=user, total_amount=total_amount, **validated_data)
         order.photos.set(photos)
         return order

@@ -18,6 +18,8 @@ class Album(models.Model):
         blank=True,
     )
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True, db_index=True)
+    photo_price = models.DecimalField(max_digits=10, decimal_places=2, default=5.00)
+    full_album_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.slug:

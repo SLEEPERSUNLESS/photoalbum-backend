@@ -53,6 +53,19 @@ class PhotoAlbumAV(generics.ListAPIView):
         title = (request.data.get("title") or "").strip()
         description = (request.data.get("description") or "").strip()
         thumbnail = request.FILES.get("thumbnail")
+        
+        photo_price = request.data.get("photo_price")
+        full_album_price = request.data.get("full_album_price")
+        
+        try:
+            photo_price = float(photo_price) if photo_price else 5.00
+        except (ValueError, TypeError):
+            photo_price = 5.00
+            
+        try:
+            full_album_price = float(full_album_price) if full_album_price else None
+        except (ValueError, TypeError):
+            full_album_price = None
 
         if not title:
             return Response({"detail": "title is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -66,7 +79,14 @@ class PhotoAlbumAV(generics.ListAPIView):
             slug = f"{base}-{i}"
             i += 1
 
-        album = Album(title=title, description=description, owner=owner, slug=slug)
+        album = Album(
+            title=title, 
+            description=description, 
+            owner=owner, 
+            slug=slug,
+            photo_price=photo_price,
+            full_album_price=full_album_price
+        )
         album.save()
         if thumbnail:
             album.thumbnail = thumbnail
@@ -78,7 +98,7 @@ class PhotoAlbumAV(generics.ListAPIView):
             files.append(single)
         for f in files:
             fname = (getattr(f, 'name', '') or '').rsplit('.', 1)[0] or 'photo'
-            Photo.objects.create(album=album, url=f, title=fname)
+            Photo.objects.create(album=album, url=f, title=fname, price=photo_price)
 
         serializer = self.serializer_class(album)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -110,6 +130,8 @@ class AlbumPhotoListView(generics.ListAPIView): # allow post here later
         serializer = self.get_serializer(queryset, many=True)
         return Response({
             'title': album.title,
+            'photo_price': float(album.photo_price) if album.photo_price else None,
+            'full_album_price': float(album.full_album_price) if album.full_album_price else None,
             'photos': serializer.data
         })
 
@@ -223,6 +245,8 @@ def album_meta_view(request, slug):
     title = request.data.get("title")
     description = request.data.get("description")
     thumbnail = request.FILES.get("thumbnail")
+    photo_price = request.data.get("photo_price")
+    full_album_price = request.data.get("full_album_price")
 
     changed = False
     update_fields = []
@@ -234,6 +258,22 @@ def album_meta_view(request, slug):
         album.description = description
         update_fields.append("description")
         changed = True
+    if photo_price is not None:
+        try:
+            album.photo_price = float(photo_price)
+            update_fields.append("photo_price")
+            changed = True
+        except (ValueError, TypeError):
+            pass
+    if "full_album_price" in request.data:
+        try:
+            album.full_album_price = float(full_album_price) if full_album_price else None
+            update_fields.append("full_album_price")
+            changed = True
+        except (ValueError, TypeError):
+            album.full_album_price = None
+            update_fields.append("full_album_price")
+            changed = True
     if changed:
         album.save(update_fields=update_fields)
     if thumbnail is not None:
@@ -257,6 +297,41 @@ def create_payment(request):
     order.payu_order_id = payu_order_id
     order.save()
     
+    photos = order.photos.select_related('album').all()
+    album_photos = {}
+    for photo in photos:
+        album_id = photo.album_id
+        if album_id not in album_photos:
+            album_photos[album_id] = {
+                'album': photo.album,
+                'photos': [],
+                'total': 0
+            }
+        album_photos[album_id]['photos'].append(photo)
+        album_photos[album_id]['total'] += photo.price
+    
+    products = []
+    for album_id, data in album_photos.items():
+        album = data['album']
+        album_total_photos = album.photos.count()
+        order_album_photos = len(data['photos'])
+        
+        if (album_total_photos == order_album_photos and 
+            album.full_album_price is not None and 
+            album.full_album_price < data['total']):
+            products.append({
+                "name": f"Album: {album.title} (cały album)",
+                "unitPrice": str(int(album.full_album_price * 100)),
+                "quantity": "1"
+            })
+        else:
+            for photo in data['photos']:
+                products.append({
+                    "name": f"Zdjęcie {photo.title}",
+                    "unitPrice": str(int(photo.price * 100)),
+                    "quantity": "1"
+                })
+    
     order_data = {
         "notifyUrl": settings.PAYU_NOTIFY_URL,
         "continueUrl": f"{settings.FRONTEND_URL}/payment/success?order_id={order.id}",
@@ -266,13 +341,7 @@ def create_payment(request):
         "currencyCode": "PLN",
         "totalAmount": str(int(order.total_amount * 100)),
         "extOrderId": payu_order_id,
-        "products": [
-            {
-                "name": f"Zdjęcie {photo.title}",
-                "unitPrice": str(int(photo.price * 100)),
-                "quantity": "1"
-            } for photo in order.photos.all()
-        ],
+        "products": products,
         "buyer": {
             "email": request.user.email,
             "firstName": "Nie podano",
