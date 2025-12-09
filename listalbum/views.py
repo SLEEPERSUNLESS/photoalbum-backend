@@ -17,6 +17,10 @@ from rest_framework.decorators import api_view, permission_classes, parser_class
 from django.utils import timezone
 from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
+from django.http import HttpResponse
+import zipfile
+import io
+import os
 
 
 
@@ -254,7 +258,7 @@ def create_payment(request):
     
     order_data = {
         "notifyUrl": settings.PAYU_NOTIFY_URL,
-        "continueUrl": f"{settings.FRONTEND_URL}/payment/success",
+        "continueUrl": f"{settings.FRONTEND_URL}/payment/success?order_id={order.id}",
         "customerIp": request.META.get('REMOTE_ADDR', '127.0.0.1'),
         "merchantPosId": settings.PAYU_POS_ID,
         "description": f"Zamówienie zdjęć - {order.id}",
@@ -629,4 +633,43 @@ def order_history(request):
     
     serializer = OrderSerializer(orders, many=True)
     return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def download_order_photos(request, order_id):
+    """Download all photos from a paid order as a ZIP file."""
+    try:
+        order = Order.objects.get(id=order_id)
+    except Order.DoesNotExist:
+        return Response({"detail": "Zamówienie nie zostało znalezione"}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Check if user owns the order or is staff
+    if not request.user.is_staff and order.user != request.user:
+        return Response({"detail": "Brak dostępu do tego zamówienia"}, status=status.HTTP_403_FORBIDDEN)
+    
+    # Check if order is paid
+    if order.status != 'paid':
+        return Response({"detail": "Zamówienie nie zostało opłacone"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    photos = order.photos.all()
+    if not photos:
+        return Response({"detail": "Brak zdjęć w zamówieniu"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Create ZIP file in memory
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for photo in photos:
+            if photo.url and photo.url.path:
+                file_path = photo.url.path
+                if os.path.exists(file_path):
+                    # Get original filename or use title
+                    original_name = os.path.basename(file_path)
+                    zip_file.write(file_path, original_name)
+    
+    zip_buffer.seek(0)
+    
+    response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="zamowienie_{order_id}.zip"'
+    return response
 
