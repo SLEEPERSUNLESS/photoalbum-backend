@@ -13,14 +13,14 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import sentry_sdk
 import os
-#from dotenv import load_dotenv
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
-#load_dotenv()
+load_dotenv()
 
 # change debug moge to False to check out sentry
 sentry_sdk.init(
-    dsn="https://fa3ba76b5c16ea2cd3f62664087d19aa@o4509238287728640.ingest.de.sentry.io/4509238291988560",
+    dsn=os.getenv("SENTRY_DSN", ""),
     send_default_pii=True,
     traces_sample_rate=1.0,
     profile_session_sample_rate=1.0,
@@ -35,15 +35,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-$y955ge))jwm%eo9hs@9ysb3t3*!)_k5@kvm3ufyz(h_w35s3k'
+SECRET_KEY = os.getenv("SECRET_KEY", 'django-insecure-$y955ge))jwm%eo9hs@9ysb3t3*!)_k5@kvm3ufyz(h_w35s3k')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 #
 # change to false for sentry
 #
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
 
-ALLOWED_HOSTS = ['20.251.168.46', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 
 # Application definition
@@ -79,11 +79,7 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://20.251.168.46:3000",
-    "http://20.251.168.46",
-]
+CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 
 ROOT_URLCONF = 'photoalbum.urls'
 
@@ -166,15 +162,6 @@ MEDIA_URL = "/files/"
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'photo-album <no-reply@example.com>'
 
-# Email configuration for SMTP (Gmail) - use this for sending real emails
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = 'avari1407@gmail.com'
-# EMAIL_HOST_PASSWORD = 'synq zuey uyel vxez'
-# DEFAULT_FROM_EMAIL = 'photo-album <no-reply@gmail.com>'
-
 # DRF config
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -211,13 +198,13 @@ LOGGING = {
 # Use custom email-only user model
 AUTH_USER_MODEL = 'accounts.User'
 
-# SANDBOX PAYU CONFIGURATION - public address for testing
-PAYU_POS_ID = '501658'
-PAYU_CLIENT_ID = '501658'
-PAYU_CLIENT_SECRET = '34102cb8c48c486fc26b1762e1aca38e'
-PAYU_SECOND_KEY = '8870910418a10581105d1877b87f6d29'  # MD5 key from PayU panel for signature verification
-PAYU_BASE_URL = 'https://secure.snd.payu.com'
-PAYU_NOTIFY_URL = 'https://twojadomena.pl/api/payment/notify/'
+# SANDBOX PAYU CONFIGURATION - loaded from environment variables
+PAYU_POS_ID = os.getenv("PAYU_POS_ID", "")
+PAYU_CLIENT_ID = os.getenv("PAYU_CLIENT_ID", "")
+PAYU_CLIENT_SECRET = os.getenv("PAYU_CLIENT_SECRET", "")
+PAYU_SECOND_KEY = os.getenv("PAYU_SECOND_KEY", "")  # MD5 key from PayU panel for signature verification
+PAYU_BASE_URL = os.getenv("PAYU_BASE_URL", "https://secure.snd.payu.com")
+PAYU_NOTIFY_URL = os.getenv("PAYU_NOTIFY_URL", "")
 
 # Frontend URL for PayU continueUrl
-FRONTEND_URL = 'http://localhost:3000'
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
