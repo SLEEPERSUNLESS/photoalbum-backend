@@ -73,7 +73,9 @@ class Order(models.Model):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     payu_order_id = models.CharField(max_length=255, unique=True, null=True, blank=True)  # Our extOrderId
     payu_internal_id = models.CharField(max_length=255, null=True, blank=True)  # PayU's orderId
-    status = models.CharField(max_length=50, default='pending')  # pending, paid, cancelled, waiting, rejected
+    # Status: pending (nowe), incomplete (przekierowano do PayU), paid, cancelled, waiting, rejected
+    status = models.CharField(max_length=50, default='pending')
+    payment_attempts = models.PositiveIntegerField(default=0)  # Track retry attempts
     created_at = models.DateTimeField(auto_now_add=True)
     paid_at = models.DateTimeField(null=True, blank=True)
 

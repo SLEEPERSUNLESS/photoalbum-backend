@@ -469,7 +469,11 @@ def create_payment(request):
     payu_internal_id = payu_data.get('orderId')
     if payu_internal_id:
         order.payu_internal_id = payu_internal_id
-        order.save(update_fields=['payu_internal_id'])
+    
+    # Mark as incomplete (user is being redirected to PayU) and track attempt
+    order.status = 'incomplete'
+    order.payment_attempts = order.payment_attempts + 1
+    order.save(update_fields=['payu_internal_id', 'status', 'payment_attempts'])
     
     return Response({
         "order_id": order.id,
@@ -689,13 +693,14 @@ def check_order_status(request, order_id):
 
 
 def refresh_pending_orders_status(orders):
-    """Refresh status of pending orders from PayU API.
+    """Refresh status of pending/incomplete orders from PayU API.
     
     Optimized version that uses concurrent requests for better performance.
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
     
-    pending_orders = [o for o in orders if o.status == 'pending' and (o.payu_internal_id or o.payu_order_id)]
+    # Include both pending and incomplete orders
+    pending_orders = [o for o in orders if o.status in ['pending', 'incomplete'] and (o.payu_internal_id or o.payu_order_id)]
     
     if not pending_orders:
         return
@@ -770,11 +775,165 @@ def refresh_pending_orders_status(orders):
                 order.save(update_fields=['status'])
 
 
+def auto_cancel_incomplete_orders():
+    """Auto-cancel incomplete orders older than 5 minutes (test value, change to 24h for production)."""
+    from datetime import timedelta
+    
+    cutoff_time = timezone.now() - timedelta(minutes=5)  # 5 minutes for testing
+    incomplete_orders = Order.objects.filter(
+        status='incomplete',
+        created_at__lt=cutoff_time
+    )
+    
+    cancelled_count = incomplete_orders.update(status='cancelled')
+    return cancelled_count
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def retry_payment(request, order_id):
+    """Retry payment for incomplete, pending or cancelled orders."""
+    try:
+        order = Order.objects.get(id=order_id, user=request.user)
+    except Order.DoesNotExist:
+        return Response({"detail": "Zamówienie nie zostało znalezione"}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Only allow retry for specific statuses
+    if order.status not in ['incomplete', 'pending', 'cancelled']:
+        return Response({
+            "detail": f"Nie można ponowić płatności dla zamówienia o statusie: {order.status}"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Generate new PayU order ID
+    new_payu_order_id = str(uuid.uuid4())
+    
+    # Build products list from existing order photos
+    photos = order.photos.select_related('album').all()
+    album_photos = {}
+    for photo in photos:
+        album_id = photo.album_id
+        if album_id not in album_photos:
+            album_photos[album_id] = {
+                'album': photo.album,
+                'photos': [],
+                'total': 0
+            }
+        album_photos[album_id]['photos'].append(photo)
+        album_photos[album_id]['total'] += photo.price
+    
+    products = []
+    for album_id, data in album_photos.items():
+        album = data['album']
+        album_total_photos = album.photos.count()
+        order_album_photos = len(data['photos'])
+        
+        if (album_total_photos == order_album_photos and 
+            album.full_album_price is not None and 
+            album.full_album_price < data['total']):
+            products.append({
+                "name": f"Album: {album.title} (cały album)",
+                "unitPrice": str(int(album.full_album_price * 100)),
+                "quantity": "1"
+            })
+        else:
+            for photo in data['photos']:
+                products.append({
+                    "name": f"Zdjęcie {photo.title}",
+                    "unitPrice": str(int(photo.price * 100)),
+                    "quantity": "1"
+                })
+    
+    order_data = {
+        "notifyUrl": settings.PAYU_NOTIFY_URL,
+        "continueUrl": f"{settings.FRONTEND_URL}/payment/success?order_id={order.id}",
+        "customerIp": request.META.get('REMOTE_ADDR', '127.0.0.1'),
+        "merchantPosId": settings.PAYU_POS_ID,
+        "description": f"Zamówienie zdjęć - {order.id} (ponowna próba)",
+        "currencyCode": "PLN",
+        "totalAmount": str(int(order.total_amount * 100)),
+        "extOrderId": new_payu_order_id,
+        "products": products,
+        "buyer": {
+            "email": request.user.email,
+            "firstName": "Nie podano",
+            "lastName": "Nie podano",
+        }
+    }
+    
+    # Authenticate with PayU
+    auth_response = requests.post(
+        f"{settings.PAYU_BASE_URL}/pl/standard/user/oauth/authorize",
+        data={
+            'grant_type': 'client_credentials',
+            'client_id': settings.PAYU_CLIENT_ID,
+            'client_secret': settings.PAYU_CLIENT_SECRET
+        },
+        headers={'Content-Type': 'application/x-www-form-urlencoded'}
+    )
+    
+    if auth_response.status_code != 200:
+        return Response({"detail": f"Błąd autoryzacji PayU: {auth_response.text}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    try:
+        token = auth_response.json()['access_token']
+    except (ValueError, KeyError):
+        return Response({"detail": "Nieprawidłowa odpowiedź autoryzacji PayU"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    # Create order in PayU
+    order_response = requests.post(
+        f"{settings.PAYU_BASE_URL}/api/v2_1/orders",
+        json=order_data,
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {token}'
+        },
+        allow_redirects=False
+    )
+    
+    if order_response.status_code != 302:
+        return Response({
+            "detail": f"Błąd tworzenia zamówienia w PayU: {order_response.text}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    try:
+        payu_data = order_response.json()
+    except ValueError:
+        return Response({
+            "detail": "Nieprawidłowa odpowiedź JSON od PayU"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    if payu_data.get("status", {}).get("statusCode") != "SUCCESS":
+        return Response({
+            "detail": f"PayU zwróciło błąd: {payu_data}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    redirect_url = payu_data["redirectUri"]
+    
+    # Update order with new PayU data
+    order.payu_order_id = new_payu_order_id
+    payu_internal_id = payu_data.get('orderId')
+    if payu_internal_id:
+        order.payu_internal_id = payu_internal_id
+    order.status = 'incomplete'
+    order.payment_attempts = order.payment_attempts + 1
+    order.save(update_fields=['payu_order_id', 'payu_internal_id', 'status', 'payment_attempts'])
+    
+    return Response({
+        "order_id": order.id,
+        "payu_order_id": new_payu_order_id,
+        "redirect_url": redirect_url,
+        "payment_attempts": order.payment_attempts
+    })
+
+
 @api_view(["GET"])
 def order_history(request):
     user = request.user
     if not user.is_authenticated:
         return Response({"detail": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    # Auto-cancel incomplete orders older than 5 minutes
+    auto_cancel_incomplete_orders()
     
     # Build base queryset with optimized joins (fixes N+1 problem)
     if user.is_staff:
@@ -786,13 +945,13 @@ def order_history(request):
     else:
         orders = Order.objects.select_related('user').prefetch_related('photos__album').filter(user=user).order_by('-created_at')
     
-    # Refresh status only for pending orders on current page (not all orders)
-    # This is done async-style - only check pending orders that are actually displayed
+    # Refresh status only for pending/incomplete orders on current page (not all orders)
+    # This is done async-style - only check orders that are actually displayed
     paginator = OrderPagination()
     paginated_orders = paginator.paginate_queryset(orders, request)
     
-    # Refresh status only for pending orders on this page
-    pending_on_page = [o for o in paginated_orders if o.status == 'pending']
+    # Refresh status for pending and incomplete orders on this page
+    pending_on_page = [o for o in paginated_orders if o.status in ['pending', 'incomplete']]
     if pending_on_page:
         refresh_pending_orders_status(pending_on_page)
     serializer = OrderSerializer(paginated_orders, many=True)

@@ -19,7 +19,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse
 from user_app import views
-from listalbum.views import PhotoAlbumAV, AlbumPhotoListView, order_history, album_access_view, album_access_delete, album_meta_view, album_photo_delete, email_suggestions, create_payment, payu_notify, check_order_status, download_order_photos, serve_photo, serve_thumbnail
+from listalbum.views import PhotoAlbumAV, AlbumPhotoListView, order_history, album_access_view, album_access_delete, album_meta_view, album_photo_delete, email_suggestions, create_payment, payu_notify, check_order_status, download_order_photos, serve_photo, serve_thumbnail, retry_payment
 
 def health_check(request):
     return JsonResponse({"status": "ok123"}, status=200)
@@ -49,6 +49,7 @@ urlpatterns = [
     path('api/payment/notify/', payu_notify, name='payu-notify'),
     path('api/orders/history/', order_history, name='order-history'),
     path('api/orders/<int:order_id>/check-status/', check_order_status, name='check-order-status'),
+    path('api/orders/<int:order_id>/retry/', retry_payment, name='retry-payment'),
     path('api/orders/<int:order_id>/download/', download_order_photos, name='download-order-photos'),
     path('api/photos/<uuid:photo_uuid>/', serve_photo, name='serve-photo'),
     path('api/thumbnails/<slug:slug>/', serve_thumbnail, name='serve-thumbnail'),
