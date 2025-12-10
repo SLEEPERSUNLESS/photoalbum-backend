@@ -235,7 +235,7 @@ def album_meta_view(request, slug):
     album = get_object_or_404(Album, slug=slug)
 
     if request.method == "GET":
-        serializer = AlbumSerializer(album)
+        serializer = AlbumSerializer(album, context={'request': request})
         return Response(serializer.data)
 
     if request.method == "DELETE":
@@ -280,7 +280,7 @@ def album_meta_view(request, slug):
         album.thumbnail = thumbnail
         album.save(update_fields=["thumbnail"]) 
 
-    serializer = AlbumSerializer(album)
+    serializer = AlbumSerializer(album, context={'request': request})
     return Response(serializer.data)
 
 
@@ -842,6 +842,10 @@ def serve_photo(request, photo_uuid):
         
         response = HttpResponse(content, content_type=content_type)
         response['Cache-Control'] = 'private, max-age=3600'
+        # Add CORS headers to allow cross-origin requests
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type'
         return response
     
     try:
@@ -874,6 +878,10 @@ def serve_photo(request, photo_uuid):
         
         response = HttpResponse(output.getvalue(), content_type='image/webp')
         response['Cache-Control'] = 'private, max-age=3600'
+        # Add CORS headers to allow cross-origin requests
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type'
         return response
         
     except Exception as e:

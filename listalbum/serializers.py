@@ -6,6 +6,7 @@ class AlbumSerializer(serializers.ModelSerializer):
     owner_id = serializers.IntegerField(source='owner.id', read_only=True)
     owner_email = serializers.EmailField(source='owner.email', read_only=True)
     thumbnail = serializers.SerializerMethodField()
+    thumbnail = serializers.SerializerMethodField()
 
     class Meta:
         model = Album
