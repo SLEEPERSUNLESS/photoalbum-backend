@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .pagination import AlbumPagination
 from user_app.models import AllowedEmail
+from user_app.views import ensure_user_and_allowed_email, EMAIL_REGEX
 import requests
 from django.conf import settings
 import uuid
@@ -163,6 +164,17 @@ class AlbumPhotoListView(generics.ListAPIView): # allow post here later
 @api_view(["GET", "POST"])  
 @permission_classes([IsAuthenticated, IsAdminUser])
 def album_access_view(request, slug):
+    """
+    GET: List all access entries for this album
+    POST: Add access for one or multiple emails
+    
+    POST body options:
+    - {"email": "single@example.com"} - single email (backward compatible)
+    - {"emails": ["email1@example.com", "email2@example.com", ...]} - bulk emails
+    
+    For bulk, returns:
+    {"added": X, "existing": Y, "invalid": Z, "invalid_emails": [...], "entries": [...]}
+    """
     album = get_object_or_404(Album, slug=slug)
     if request.method == "GET":
         items = album.accesses.all().order_by('email')
@@ -170,12 +182,70 @@ def album_access_view(request, slug):
             {"id": it.id, "email": it.email, "created_at": it.created_at}
             for it in items
         ])
-    # POST
-    email = (request.data.get("email") or "").strip().lower()
-    if not email:
-        return Response({"detail": "email required"}, status=status.HTTP_400_BAD_REQUEST)
-    obj, created = AlbumAccess.objects.get_or_create(album=album, email=email)
-    return Response({"id": obj.id, "email": obj.email}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+    
+    # POST - handle both single and bulk
+    emails_list = request.data.get("emails")
+    single_email = request.data.get("email")
+    
+    # If single email provided (backward compatibility)
+    if single_email and not emails_list:
+        email = single_email.strip().lower()
+        if not email or not EMAIL_REGEX.match(email):
+            return Response({"detail": "Invalid email format"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Ensure user and allowed email exist
+        ensure_user_and_allowed_email(email, created_by=request.user)
+        
+        obj, created = AlbumAccess.objects.get_or_create(album=album, email=email)
+        return Response({"id": obj.id, "email": obj.email}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+    
+    # Bulk mode
+    if not emails_list:
+        return Response({"detail": "email or emails required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not isinstance(emails_list, list):
+        return Response({"detail": "emails must be an array"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    added = 0
+    existing = 0
+    invalid = 0
+    invalid_emails = []
+    entries = []
+    
+    for raw_email in emails_list:
+        if not isinstance(raw_email, str):
+            invalid += 1
+            continue
+        
+        email = raw_email.strip().lower()
+        
+        # Validate email format
+        if not email or not EMAIL_REGEX.match(email):
+            invalid += 1
+            if email:
+                invalid_emails.append(raw_email.strip())
+            continue
+        
+        # Ensure user and allowed email exist
+        ensure_user_and_allowed_email(email, created_by=request.user)
+        
+        # Create album access
+        obj, created = AlbumAccess.objects.get_or_create(album=album, email=email)
+        
+        if created:
+            added += 1
+        else:
+            existing += 1
+        
+        entries.append({"id": obj.id, "email": obj.email})
+    
+    return Response({
+        "added": added,
+        "existing": existing,
+        "invalid": invalid,
+        "invalid_emails": invalid_emails,
+        "entries": entries
+    }, status=status.HTTP_201_CREATED if added > 0 else status.HTTP_200_OK)
 
 
 @api_view(["DELETE"])  

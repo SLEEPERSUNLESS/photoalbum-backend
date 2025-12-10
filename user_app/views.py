@@ -8,11 +8,58 @@ from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 import logging
+import re
 from django.db.models import Q
 
 from .models import EmailOTP, AllowedEmail
 
 logger = logging.getLogger(__name__)
+
+# Email validation regex
+EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+
+
+def ensure_user_and_allowed_email(email: str, created_by=None) -> tuple:
+	"""
+	Ensure that an AllowedEmail and User exist for the given email.
+	Creates them if they don't exist.
+	
+	Args:
+		email: The email address to ensure exists
+		created_by: The user who is creating this entry (optional)
+	
+	Returns:
+		tuple: (allowed_email_obj, user_obj, was_created)
+	"""
+	email = email.strip().lower()
+	User = get_user_model()
+	
+	# Create or get AllowedEmail
+	allowed_obj, allowed_created = AllowedEmail.objects.get_or_create(
+		email=email,
+		defaults={"created_by": created_by}
+	)
+	
+	# Reactivate if it was deactivated
+	if not allowed_created and not allowed_obj.is_active:
+		allowed_obj.is_active = True
+		allowed_obj.save(update_fields=["is_active"])
+	
+	# Create User if doesn't exist
+	user = None
+	user_created = False
+	try:
+		user = User.objects.get(email__iexact=email)
+	except User.DoesNotExist:
+		user = User.objects.create(email=email)
+		try:
+			user.set_unusable_password()
+			user.save(update_fields=["password"])
+		except Exception:
+			pass
+		user_created = True
+	
+	return allowed_obj, user, allowed_created or user_created
 
 
 @api_view(["POST"])
@@ -139,7 +186,7 @@ def allowed_emails_view(request):
 		User = get_user_model()
 		admins_qs = User.objects.filter(Q(is_staff=True) | Q(is_superuser=True)).distinct()
 		admins = [
-			{"id": f"admin-{u.id}", "email": getattr(u, 'email', ''), "created_at": None, "type": "admin", "is_admin": True}
+			{"id": f"admin-{u.id}", "email": getattr(u, 'email', ''), "created_at": getattr(u, 'date_joined', None), "type": "admin", "is_admin": True}
 			for u in admins_qs
 		]
 		return Response(allowed + admins)
