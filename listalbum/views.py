@@ -7,7 +7,7 @@ from .serializers import PhotosSerializer, AlbumSerializer, OrderSerializer
 from rest_framework import generics, status, filters
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from .pagination import AlbumPagination
+from .pagination import AlbumPagination, OrderPagination
 from user_app.models import AllowedEmail
 from user_app.views import ensure_user_and_allowed_email, EMAIL_REGEX
 import requests
@@ -689,6 +689,12 @@ def check_order_status(request, order_id):
 
 
 def refresh_pending_orders_status(orders):
+    """Refresh status of pending orders from PayU API.
+    
+    Optimized version that uses concurrent requests for better performance.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
     pending_orders = [o for o in orders if o.status == 'pending' and (o.payu_internal_id or o.payu_order_id)]
     
     if not pending_orders:
@@ -713,8 +719,8 @@ def refresh_pending_orders_status(orders):
     except Exception:
         return
     
-    
-    for order in pending_orders:
+    def check_single_order(order):
+        """Check status of a single order from PayU."""
         try:
             payu_id = order.payu_internal_id or order.payu_order_id
             order_response = requests.get(
@@ -723,34 +729,45 @@ def refresh_pending_orders_status(orders):
                     'Authorization': f'Bearer {token}',
                     'Content-Type': 'application/json'
                 },
-                timeout=5
+                timeout=3
             )
             
             if order_response.status_code != 200:
-                continue
+                return None
             
             payu_data = order_response.json()
             orders_list = payu_data.get('orders', [])
             if not orders_list:
+                return None
+            
+            return (order, orders_list[0].get('status'))
+        except Exception:
+            return None
+    
+    # Use thread pool for concurrent requests (max 5 concurrent)
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(check_single_order, order): order for order in pending_orders}
+        
+        for future in as_completed(futures):
+            result = future.result()
+            if result is None:
                 continue
             
-            payu_status = orders_list[0].get('status')
+            order, payu_status = result
             
             if payu_status == 'COMPLETED':
                 order.status = 'paid'
                 order.paid_at = timezone.now()
-                order.save()
+                order.save(update_fields=['status', 'paid_at'])
             elif payu_status == 'CANCELED':
                 order.status = 'cancelled'
-                order.save()
+                order.save(update_fields=['status'])
             elif payu_status == 'WAITING_FOR_CONFIRMATION':
                 order.status = 'waiting'
-                order.save()
+                order.save(update_fields=['status'])
             elif payu_status == 'REJECTED':
                 order.status = 'rejected'
-                order.save()
-        except Exception:
-            continue
+                order.save(update_fields=['status'])
 
 
 @api_view(["GET"])
@@ -759,24 +776,27 @@ def order_history(request):
     if not user.is_authenticated:
         return Response({"detail": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
     
+    # Build base queryset with optimized joins (fixes N+1 problem)
     if user.is_staff:
-        orders = list(Order.objects.all().order_by('-created_at'))
-    else:
-        orders = list(Order.objects.filter(user=user).order_by('-created_at'))
-    
-    refresh_pending_orders_status(orders)
-    
-    if user.is_staff:
-        orders = Order.objects.all().order_by('-created_at')
+        orders = Order.objects.select_related('user').prefetch_related('photos__album').order_by('-created_at')
         # Admin can search by email
         search_query = request.query_params.get('search', '').strip()
         if search_query:
             orders = orders.filter(user__email__icontains=search_query)
     else:
-        orders = Order.objects.filter(user=user).order_by('-created_at')
+        orders = Order.objects.select_related('user').prefetch_related('photos__album').filter(user=user).order_by('-created_at')
     
-    serializer = OrderSerializer(orders, many=True)
-    return Response(serializer.data)
+    # Refresh status only for pending orders on current page (not all orders)
+    # This is done async-style - only check pending orders that are actually displayed
+    paginator = OrderPagination()
+    paginated_orders = paginator.paginate_queryset(orders, request)
+    
+    # Refresh status only for pending orders on this page
+    pending_on_page = [o for o in paginated_orders if o.status == 'pending']
+    if pending_on_page:
+        refresh_pending_orders_status(pending_on_page)
+    serializer = OrderSerializer(paginated_orders, many=True)
+    return paginator.get_paginated_response(serializer.data)
 
 
 @api_view(["GET"])
