@@ -5,6 +5,7 @@ from .models import Photo, Album, Order
 class AlbumSerializer(serializers.ModelSerializer):
     owner_id = serializers.IntegerField(source='owner.id', read_only=True)
     owner_email = serializers.EmailField(source='owner.email', read_only=True)
+    thumbnail = serializers.SerializerMethodField()
 
     class Meta:
         model = Album
@@ -21,6 +22,15 @@ class AlbumSerializer(serializers.ModelSerializer):
             "photo_price",
             "full_album_price",
         ]
+    
+    def get_thumbnail(self, obj):
+        """Return the thumbnail URL using our dedicated serve endpoint."""
+        if not obj.thumbnail:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(f'/api/thumbnails/{obj.slug}/')
+        return f'/api/thumbnails/{obj.slug}/'
 
 
 class PhotosSerializer(serializers.ModelSerializer):

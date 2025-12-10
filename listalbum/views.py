@@ -879,3 +879,44 @@ def serve_photo(request, photo_uuid):
     except Exception as e:
         return Response({"detail": f"Error processing image: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+@api_view(["GET"])
+@authentication_classes([])
+@perm_classes([AllowAny])
+def serve_thumbnail(request, slug):
+    """
+    Serve album thumbnail with proper CORS headers.
+    Thumbnails are public - no authentication required.
+    """
+    try:
+        album = Album.objects.get(slug=slug)
+    except Album.DoesNotExist:
+        return Response({"detail": "Album not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    if not album.thumbnail or not album.thumbnail.path:
+        return Response({"detail": "No thumbnail"}, status=status.HTTP_404_NOT_FOUND)
+    
+    file_path = album.thumbnail.path
+    if not os.path.exists(file_path):
+        return Response({"detail": "Thumbnail file not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    try:
+        with open(file_path, 'rb') as f:
+            content = f.read()
+        
+        ext = os.path.splitext(file_path)[1].lower()
+        content_types = {
+            '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+            '.png': 'image/png', '.gif': 'image/gif',
+            '.webp': 'image/webp', '.jfif': 'image/jpeg'
+        }
+        content_type = content_types.get(ext, 'image/jpeg')
+        
+        response = HttpResponse(content, content_type=content_type)
+        response['Cache-Control'] = 'public, max-age=86400'
+        response['Access-Control-Allow-Origin'] = '*'
+        return response
+        
+    except Exception as e:
+        return Response({"detail": f"Error serving thumbnail: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
