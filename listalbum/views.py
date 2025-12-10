@@ -768,6 +768,10 @@ def order_history(request):
     
     if user.is_staff:
         orders = Order.objects.all().order_by('-created_at')
+        # Admin can search by email
+        search_query = request.query_params.get('search', '').strip()
+        if search_query:
+            orders = orders.filter(user__email__icontains=search_query)
     else:
         orders = Order.objects.filter(user=user).order_by('-created_at')
     
