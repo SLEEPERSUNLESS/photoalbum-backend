@@ -89,15 +89,24 @@ class PhotoAlbumAV(generics.ListAPIView):
             full_album_price=full_album_price
         )
         album.save()
+
+        # Validate and save thumbnail (block GIF)
         if thumbnail:
+            ext = os.path.splitext(getattr(thumbnail, 'name', ''))[1].lower()
+            if ext == '.gif' or getattr(thumbnail, 'content_type', '') == 'image/gif':
+                return Response({"detail": "GIF format is not allowed for thumbnails."}, status=status.HTTP_400_BAD_REQUEST)
             album.thumbnail = thumbnail
             album.save(update_fields=["thumbnail"])
+
 
         files = request.FILES.getlist('photos') or []
         single = request.FILES.get('photo')
         if single:
             files.append(single)
         for f in files:
+            ext = os.path.splitext(getattr(f, 'name', ''))[1].lower()
+            if ext == '.gif' or getattr(f, 'content_type', '') == 'image/gif':
+                continue  # skip GIFs
             fname = (getattr(f, 'name', '') or '').rsplit('.', 1)[0] or 'photo'
             Photo.objects.create(album=album, url=f, title=fname, price=photo_price)
 
@@ -144,8 +153,8 @@ class AlbumPhotoListView(generics.ListAPIView): # allow post here later
         slug = self.kwargs['slug']
         album = get_object_or_404(Album, slug=slug)
 
+
         files = request.FILES.getlist('photos') or []
-        # also accept single file under 'photo'
         single = request.FILES.get('photo')
         if single:
             files.append(single)
@@ -154,6 +163,9 @@ class AlbumPhotoListView(generics.ListAPIView): # allow post here later
 
         created = []
         for f in files:
+            ext = os.path.splitext(getattr(f, 'name', ''))[1].lower()
+            if ext == '.gif' or getattr(f, 'content_type', '') == 'image/gif':
+                continue  # skip GIFs
             title = (getattr(f, 'name', '') or '').rsplit('.', 1)[0] or 'photo'
             p = Photo.objects.create(album=album, url=f, title=title)
             created.append(p)
@@ -347,6 +359,9 @@ def album_meta_view(request, slug):
     if changed:
         album.save(update_fields=update_fields)
     if thumbnail is not None:
+        ext = os.path.splitext(getattr(thumbnail, 'name', ''))[1].lower()
+        if ext == '.gif' or getattr(thumbnail, 'content_type', '') == 'image/gif':
+            return Response({"detail": "GIF format is not allowed for thumbnails."}, status=status.HTTP_400_BAD_REQUEST)
         album.thumbnail = thumbnail
         album.save(update_fields=["thumbnail"]) 
 
@@ -1088,9 +1103,11 @@ def serve_photo(request, photo_uuid):
         ext = os.path.splitext(file_path)[1].lower()
         content_types = {
             '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-            '.png': 'image/png', '.gif': 'image/gif',
+            '.png': 'image/png',
             '.webp': 'image/webp'
         }
+        if ext == '.gif':
+            return Response({"detail": "GIF format is not allowed."}, status=status.HTTP_400_BAD_REQUEST)
         content_type = content_types.get(ext, 'application/octet-stream')
         
         response = HttpResponse(content, content_type=content_type)
@@ -1168,9 +1185,11 @@ def serve_thumbnail(request, slug):
         ext = os.path.splitext(file_path)[1].lower()
         content_types = {
             '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-            '.png': 'image/png', '.gif': 'image/gif',
+            '.png': 'image/png',
             '.webp': 'image/webp', '.jfif': 'image/jpeg'
         }
+        if ext == '.gif':
+            return Response({"detail": "GIF format is not allowed."}, status=status.HTTP_400_BAD_REQUEST)
         content_type = content_types.get(ext, 'image/jpeg')
         
         response = HttpResponse(content, content_type=content_type)
