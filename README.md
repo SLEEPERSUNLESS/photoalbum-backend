@@ -1,5 +1,4 @@
 [![CI-CD](https://github.com/Calling-All-Crows/photoalbum-backend/actions/workflows/main_push.yml/badge.svg)](https://github.com/Calling-All-Crows/photoalbum-backend/actions/workflows/main_push.yml)
-## !! use changes branch !!
 
 1.  **Klonuj repo:**
 
